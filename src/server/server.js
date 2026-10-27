@@ -109,13 +109,14 @@ app.get('/api/broken-date', async (req, res) => {
     const pair = req.query.pair || 'EURUSD';
     const asOf = req.query.asOf || new Date().toISOString().split('T')[0];
     const settlement = req.query.settlement;
+    const spot = req.query.spot ? parseFloat(req.query.spot) : null;
     const applyXccy = req.query.applyXccy !== 'false';
 
     if (!settlement) {
       return res.status(400).json({ error: 'Missing settlement query parameter (YYYY-MM-DD)' });
     }
 
-    const result = await calculateBrokenDateForward(pair, asOf, settlement, { applyXccy });
+    const result = await calculateBrokenDateForward(pair, asOf, settlement, { applyXccy, spot });
     res.json(result);
   } catch (error) {
     console.error('Error in /api/broken-date:', error);
@@ -130,7 +131,8 @@ app.get('/api/window-forward', async (req, res) => {
     const asOf = req.query.asOf || new Date().toISOString().split('T')[0];
     const windowStart = req.query.windowStart;
     const windowEnd = req.query.windowEnd;
-    const direction = req.query.direction || 'BUY_BASE';
+    const direction = req.query.direction || 'BUY_LHS';
+    const spot = req.query.spot ? parseFloat(req.query.spot) : null;
     const notional = parseFloat(req.query.notional) || 1000000;
     const applyXccy = req.query.applyXccy !== 'false';
 
@@ -140,7 +142,8 @@ app.get('/api/window-forward', async (req, res) => {
 
     const result = await calculateWindowForward(pair, asOf, windowStart, windowEnd, direction, {
       applyXccy,
-      notional
+      notional,
+      spot
     });
     res.json(result);
   } catch (error) {
