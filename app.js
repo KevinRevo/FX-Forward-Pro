@@ -1,10 +1,17 @@
 /**
- * Bloomberg Terminal FX Forward Client Engine
+ * Institutional Interbank FX Forward Client Application
+ * Features:
+ * - Bidirectional pair quoting (EUR:USD <-> USD:EUR, etc.)
+ * - Tenor ladder display
+ * - Historical curve comparison
+ * - Historical time-series
+ * - Fixed & Window Forward pricing with conservative interbank delivery boundary
  */
 
 let AVAILABLE_PAIRS = [];
 let ACTIVE_PAIR = 'EURUSD';
 let CURRENT_LADDER_DATA = null;
+let PRICER_MODE = 'fixed'; // 'fixed' or 'window'
 
 // DOM Elements
 const commandInput = document.getElementById('command-input');
@@ -14,6 +21,7 @@ const presetsContainer = document.getElementById('presets-container');
 
 // Banner elements
 const activePairName = document.getElementById('active-pair-name');
+const bannerInvertBtn = document.getElementById('banner-invert-btn');
 const bannerSpotBid = document.getElementById('banner-spot-bid');
 const bannerSpotAsk = document.getElementById('banner-spot-ask');
 const bannerSpotMid = document.getElementById('banner-spot-mid');
@@ -24,6 +32,7 @@ const bannerXccyBasis = document.getElementById('banner-xccy-basis');
 
 // FRD elements
 const frdPairSelect = document.getElementById('frd-pair-select');
+const frdInvertBtn = document.getElementById('frd-invert-btn');
 const frdDateInput = document.getElementById('frd-date-input');
 const frdXccyToggle = document.getElementById('frd-xccy-toggle');
 const frdRefreshBtn = document.getElementById('frd-refresh-btn');
@@ -32,6 +41,7 @@ const frdTableBody = document.getElementById('frd-table-body');
 
 // COMP elements
 const compPairSelect = document.getElementById('comp-pair-select');
+const compInvertBtn = document.getElementById('comp-invert-btn');
 const compDate1 = document.getElementById('comp-date1');
 const compDate2 = document.getElementById('comp-date2');
 const compRunBtn = document.getElementById('comp-run-btn');
@@ -42,6 +52,7 @@ const compLegendDate2 = document.getElementById('comp-legend-date2');
 
 // HIST elements
 const histPairSelect = document.getElementById('hist-pair-select');
+const histInvertBtn = document.getElementById('hist-invert-btn');
 const histTenorSelect = document.getElementById('hist-tenor-select');
 const histStartDate = document.getElementById('hist-start-date');
 const histEndDate = document.getElementById('hist-end-date');
@@ -50,60 +61,52 @@ const histRateChart = document.getElementById('hist-rate-chart');
 const histPointsChart = document.getElementById('hist-points-chart');
 const histChartTitle = document.getElementById('hist-chart-title');
 
-// FXFA elements
+// PRICER elements
+const modeFixedBtn = document.getElementById('mode-fixed-btn');
+const modeWindowBtn = document.getElementById('mode-window-btn');
+const rowFixedDate = document.getElementById('row-fixed-date');
+const rowWindowDates = document.getElementById('row-window-dates');
+const rowDirection = document.getElementById('row-direction');
+
 const fxfaPairSelect = document.getElementById('fxfa-pair-select');
+const fxfaInvertBtn = document.getElementById('fxfa-invert-btn');
 const fxfaAsofDate = document.getElementById('fxfa-asof-date');
 const fxfaSettleDate = document.getElementById('fxfa-settle-date');
+const fxfaWindowStart = document.getElementById('fxfa-window-start');
+const fxfaWindowEnd = document.getElementById('fxfa-window-end');
+const fxfaDirection = document.getElementById('fxfa-direction');
 const fxfaNotional = document.getElementById('fxfa-notional');
 const fxfaXccyToggle = document.getElementById('fxfa-xccy-toggle');
 const fxfaCalculateBtn = document.getElementById('fxfa-calculate-btn');
 
-// FXFA results
+// PRICER output elements
+const pricerResultHeading = document.getElementById('pricer-result-heading');
+const lblMetricDays = document.getElementById('lbl-metric-days');
+const lblMetricPts = document.getElementById('lbl-metric-pts');
+const lblMetricRate = document.getElementById('lbl-metric-rate');
 const resDays = document.getElementById('res-days');
 const resSpotDate = document.getElementById('res-spot-date');
 const resSpot = document.getElementById('res-spot');
 const resPoints = document.getElementById('res-points');
 const resAnnPrm = document.getElementById('res-ann-prm');
 const resOutright = document.getElementById('res-outright');
+const resSubDesc = document.getElementById('res-sub-desc');
+
+const fixedDecomposition = document.getElementById('fixed-decomposition');
 const resBaseRate = document.getElementById('res-base-rate');
 const resQuoteRate = document.getElementById('res-quote-rate');
 const resXccyBasis = document.getElementById('res-xccy-basis');
 const resCashflow = document.getElementById('res-cashflow');
 
-// 1. Clock
-function updateClock() {
-  const now = new Date();
-  systemClock.textContent = now.toUTCString().replace('GMT', 'UTC');
-}
-setInterval(updateClock, 1000);
-updateClock();
-
-// 2. Tab Navigation
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    switchTab(btn.dataset.tab);
-  });
-});
-
-function switchTab(tabId) {
-  document.querySelectorAll('.tab-btn').forEach(b => {
-    const isActive = b.dataset.tab === tabId;
-    b.classList.toggle('active', isActive);
-    b.setAttribute('aria-selected', isActive ? 'true' : 'false');
-  });
-
-  document.querySelectorAll('.tab-pane').forEach(p => {
-    p.classList.toggle('active', p.id === `tab-${tabId}`);
-  });
-
-  if (tabId === 'comp') {
-    loadComparison();
-  } else if (tabId === 'hist') {
-    loadHistory();
-  } else if (tabId === 'fxfa') {
-    calculateFXFA();
-  }
-}
+const windowDecomposition = document.getElementById('window-decomposition');
+const winCurveStructure = document.getElementById('win-curve-structure');
+const winStartRate = document.getElementById('win-start-rate');
+const winEndRate = document.getElementById('win-end-rate');
+const winWorstDate = document.getElementById('win-worst-date');
+const winCarryCost = document.getElementById('win-carry-cost');
+const winCashflow = document.getElementById('win-cashflow');
+const windowScheduleBox = document.getElementById('window-schedule-box');
+const windowScheduleTbody = document.getElementById('window-schedule-tbody');
 
 const DEFAULT_PRESETS = [
   {
@@ -140,7 +143,94 @@ const DEFAULT_PRESETS = [
   }
 ];
 
-// 3. Initialize Pairs and Presets
+// Clock
+function updateClock() {
+  const now = new Date();
+  systemClock.textContent = now.toUTCString().replace('GMT', 'UTC');
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Invert Direction Helper
+function invertCurrentPair() {
+  const current = AVAILABLE_PAIRS.find(p => p.symbol === ACTIVE_PAIR) || AVAILABLE_PAIRS[0];
+  const targetInvKey = `${current.quote}${current.base}`;
+
+  if (AVAILABLE_PAIRS.some(p => p.symbol === targetInvKey)) {
+    ACTIVE_PAIR = targetInvKey;
+  } else {
+    // If not in array, default flip
+    ACTIVE_PAIR = targetInvKey;
+  }
+
+  syncAllSelects(ACTIVE_PAIR);
+
+  // Reload active tab
+  const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'frd';
+  if (activeTab === 'frd') loadForwardLadder();
+  else if (activeTab === 'comp') loadComparison();
+  else if (activeTab === 'hist') loadHistory();
+  else if (activeTab === 'pricer') calculatePricer();
+}
+
+function syncAllSelects(pairSymbol) {
+  [frdPairSelect, compPairSelect, histPairSelect, fxfaPairSelect].forEach(select => {
+    if (select) select.value = pairSymbol;
+  });
+
+  const p = AVAILABLE_PAIRS.find(item => item.symbol === pairSymbol);
+  if (p) {
+    bannerInvertBtn.textContent = `⇄ INVERT (${p.quote}/${p.base})`;
+  }
+}
+
+// Tab Navigation
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    switchTab(btn.dataset.tab);
+  });
+});
+
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const isActive = b.dataset.tab === tabId;
+    b.classList.toggle('active', isActive);
+    b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+
+  document.querySelectorAll('.tab-pane').forEach(p => {
+    p.classList.toggle('active', p.id === `tab-${tabId}`);
+  });
+
+  if (tabId === 'comp') loadComparison();
+  else if (tabId === 'hist') loadHistory();
+  else if (tabId === 'pricer') calculatePricer();
+}
+
+// Mode Selection (Fixed Forward vs Window Forward)
+modeFixedBtn.addEventListener('click', () => {
+  PRICER_MODE = 'fixed';
+  modeFixedBtn.classList.add('active');
+  modeWindowBtn.classList.remove('active');
+  rowFixedDate.style.display = 'block';
+  rowWindowDates.style.display = 'none';
+  rowDirection.style.display = 'none';
+  pricerResultHeading.textContent = 'FIXED FORWARD PRICING & PARITY';
+  calculatePricer();
+});
+
+modeWindowBtn.addEventListener('click', () => {
+  PRICER_MODE = 'window';
+  modeWindowBtn.classList.add('active');
+  modeFixedBtn.classList.remove('active');
+  rowFixedDate.style.display = 'none';
+  rowWindowDates.style.display = 'grid';
+  rowDirection.style.display = 'block';
+  pricerResultHeading.textContent = 'WINDOW FORWARD (FLEXIBLE DELIVERY) PRICING';
+  calculatePricer();
+});
+
+// Initialize Pairs and Presets
 async function init() {
   try {
     let pairsData = null;
@@ -161,7 +251,7 @@ async function init() {
       AVAILABLE_PAIRS.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.symbol;
-        opt.textContent = `${p.symbol} (${p.name})`;
+        opt.textContent = `${p.base}:${p.quote} (${p.name})`;
         select.appendChild(opt);
       });
     });
@@ -173,7 +263,7 @@ async function init() {
     } catch (e) {}
     renderPresets(presets);
 
-    // Initial Load
+    syncAllSelects(ACTIVE_PAIR);
     await loadForwardLadder();
   } catch (err) {
     console.error('Initialization error:', err);
@@ -196,8 +286,7 @@ function renderPresets(presets) {
 
 function applyPreset(preset) {
   ACTIVE_PAIR = preset.pair;
-  frdPairSelect.value = preset.pair;
-  compPairSelect.value = preset.pair;
+  syncAllSelects(ACTIVE_PAIR);
   compDate1.value = preset.date1;
   compDate2.value = preset.date2;
   frdDateInput.value = preset.date2;
@@ -205,10 +294,11 @@ function applyPreset(preset) {
   switchTab('comp');
 }
 
-// 4. FRD: Load Forward Rate Display Ladder
+// 1. FRD: Tenor Forward Ladder
 async function loadForwardLadder() {
   const pair = frdPairSelect.value || ACTIVE_PAIR;
   ACTIVE_PAIR = pair;
+  syncAllSelects(ACTIVE_PAIR);
   const date = frdDateInput.value;
   const applyXccy = frdXccyToggle.checked;
 
@@ -276,21 +366,25 @@ function renderLadderTable(data) {
       <td class="text-right ${ptsClass}">${row.annPremiumPct.toFixed(2)}%</td>
     `;
 
-    // Click row to jump into Broken Date (FXFA)
+    // Click row to jump into Pricer
     tr.addEventListener('click', () => {
       fxfaPairSelect.value = data.pair;
       fxfaAsofDate.value = data.tradeDate;
       fxfaSettleDate.value = row.settlementDate;
-      switchTab('fxfa');
+      PRICER_MODE = 'fixed';
+      modeFixedBtn.click();
+      switchTab('pricer');
     });
 
     frdTableBody.appendChild(tr);
   });
 }
 
-// 5. COMP: Historical Comparison
+// 2. COMP: Curve Comparison
 async function loadComparison() {
   const pair = compPairSelect.value || ACTIVE_PAIR;
+  ACTIVE_PAIR = pair;
+  syncAllSelects(ACTIVE_PAIR);
   const d1 = compDate1.value;
   const d2 = compDate2.value;
 
@@ -324,7 +418,6 @@ function renderComparisonTable(data) {
 
   data.comparisons.forEach(row => {
     const tr = document.createElement('tr');
-
     const dOutClass = row.delta.outright >= 0 ? 'positive' : 'negative';
     const dOutSign = row.delta.outright >= 0 ? '+' : '';
     const dPtsClass = row.delta.pointsPips >= 0 ? 'positive' : 'negative';
@@ -356,7 +449,6 @@ function renderComparisonChart(data) {
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
 
-  // Filter tenors for visual curve: 1W to 5Y
   const items = data.comparisons.filter(c => c.days >= 7);
   if (items.length === 0) return;
 
@@ -404,17 +496,12 @@ function renderComparisonChart(data) {
 
   container.innerHTML = `
     <svg width="100%" height="100%" viewBox="0 0 ${width} ${height}">
-      <!-- Grid -->
       <line x1="${padding.left}" y1="${padding.top}" x2="${width - padding.right}" y2="${padding.top}" stroke="#1e2a36" />
       <line x1="${padding.left}" y1="${padding.top + plotHeight}" x2="${width - padding.right}" y2="${padding.top + plotHeight}" stroke="#1e2a36" />
       ${zeroLine}
-      
-      <!-- Axis Labels -->
       <text x="${padding.left - 8}" y="${padding.top + 10}" fill="#8ba2b8" font-size="10" text-anchor="end" font-family="monospace">${maxVal.toFixed(0)}p</text>
       <text x="${padding.left - 8}" y="${padding.top + plotHeight}" fill="#8ba2b8" font-size="10" text-anchor="end" font-family="monospace">${minVal.toFixed(0)}p</text>
       ${xLabels}
-
-      <!-- Curves -->
       <path d="${pathD1}" fill="none" stroke="#ff9900" stroke-width="2.5" />
       <path d="${pathD2}" fill="none" stroke="#00e5ff" stroke-width="2.5" />
       ${circles1}
@@ -423,9 +510,11 @@ function renderComparisonChart(data) {
   `;
 }
 
-// 6. HIST: Tenor Time Series
+// 3. HIST: Tenor Time Series
 async function loadHistory() {
   const pair = histPairSelect.value || ACTIVE_PAIR;
+  ACTIVE_PAIR = pair;
+  syncAllSelects(ACTIVE_PAIR);
   const tenor = histTenorSelect.value || '3M';
   const start = histStartDate.value;
   const end = histEndDate.value;
@@ -462,7 +551,6 @@ function renderHistoryCharts(data) {
   const ph1 = h1 - pad.top - pad.bottom;
   const ph2 = h2 - pad.top - pad.bottom;
 
-  // 1. Rate Chart (Spot & Forward)
   const allRates = [...series.map(s => s.spot), ...series.map(s => s.forward)];
   let minR = Math.min(...allRates);
   let maxR = Math.max(...allRates);
@@ -503,7 +591,6 @@ function renderHistoryCharts(data) {
     </svg>
   `;
 
-  // 2. Points Chart
   const allPts = series.map(s => s.points);
   let minP = Math.min(...allPts);
   let maxP = Math.max(...allPts);
@@ -535,72 +622,146 @@ function renderHistoryCharts(data) {
   `;
 }
 
-// 7. FXFA: Broken Date Analytics
-async function calculateFXFA() {
+// 4. PRICER: Fixed Forward & Window Forward Calculator
+async function calculatePricer() {
   const pair = fxfaPairSelect.value || ACTIVE_PAIR;
+  ACTIVE_PAIR = pair;
+  syncAllSelects(ACTIVE_PAIR);
   const asOf = fxfaAsofDate.value;
-  const settle = fxfaSettleDate.value;
   const applyXccy = fxfaXccyToggle.checked;
   const notional = parseFloat(fxfaNotional.value) || 1000000;
 
-  try {
-    let data = null;
+  if (PRICER_MODE === 'fixed') {
+    // FIXED FORWARD
+    fixedDecomposition.style.display = 'block';
+    windowDecomposition.style.display = 'none';
+    windowScheduleBox.style.display = 'none';
+    lblMetricDays.textContent = 'DAYS TO SETTLE';
+    lblMetricPts.textContent = 'SWAP POINTS';
+    lblMetricRate.textContent = 'OUTRIGHT FORWARD RATE';
+    resSubDesc.textContent = 'Guaranteed Contract Rate';
+
+    const settle = fxfaSettleDate.value;
+
     try {
-      const res = await fetch(`/api/broken-date?pair=${pair}&asOf=${asOf}&settlement=${settle}&applyXccy=${applyXccy}`);
-      if (res.ok) data = await res.json();
-    } catch (e) {}
+      let data = null;
+      try {
+        const res = await fetch(`/api/broken-date?pair=${pair}&asOf=${asOf}&settlement=${settle}&applyXccy=${applyXccy}`);
+        if (res.ok) data = await res.json();
+      } catch (e) {}
 
-    if (!data && typeof CIP_CLIENT !== 'undefined') {
-      data = CIP_CLIENT.brokenDate(pair, asOf, settle, applyXccy);
+      if (!data && typeof CIP_CLIENT !== 'undefined') {
+        data = CIP_CLIENT.brokenDate(pair, asOf, settle, applyXccy);
+      }
+
+      if (!data) throw new Error('Could not calculate fixed forward');
+
+      resDays.textContent = `${data.days} days`;
+      resSpotDate.textContent = `Spot Date: ${data.spotDate}`;
+      resSpot.textContent = data.spot;
+      resPoints.textContent = `${data.swapPoints >= 0 ? '+' : ''}${data.swapPoints} pips`;
+      resAnnPrm.textContent = `${data.annPremiumPct >= 0 ? '+' : ''}${data.annPremiumPct}% Ann.`;
+      resOutright.textContent = data.outrightForward;
+
+      resBaseRate.textContent = `${data.baseRate}%`;
+      resQuoteRate.textContent = `${data.quoteRate}%`;
+      resXccyBasis.textContent = `${data.xccyBps} bps`;
+
+      const totalCashflow = notional * data.outrightForward;
+      resCashflow.textContent = `${totalCashflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    } catch (err) {
+      console.error('Fixed Forward pricing error:', err);
     }
+  } else {
+    // WINDOW FORWARD
+    fixedDecomposition.style.display = 'none';
+    windowDecomposition.style.display = 'block';
+    windowScheduleBox.style.display = 'block';
+    lblMetricDays.textContent = 'WINDOW DURATION';
+    lblMetricPts.textContent = 'WINDOW POINTS';
+    lblMetricRate.textContent = 'GUARANTEED WINDOW RATE';
+    resSubDesc.textContent = 'Executable Anytime in Window';
 
-    if (!data) throw new Error('Could not calculate broken date');
+    const winStart = fxfaWindowStart.value;
+    const winEnd = fxfaWindowEnd.value;
+    const direction = fxfaDirection.value;
 
-    resDays.textContent = `${data.days} days`;
-    resSpotDate.textContent = `Spot Date: ${data.spotDate}`;
-    resSpot.textContent = data.spot;
-    resPoints.textContent = `${data.swapPoints >= 0 ? '+' : ''}${data.swapPoints} pips`;
-    resAnnPrm.textContent = `${data.annPremiumPct >= 0 ? '+' : ''}${data.annPremiumPct}% Ann.`;
-    resOutright.textContent = data.outrightForward;
+    try {
+      let data = null;
+      try {
+        const url = `/api/window-forward?pair=${pair}&asOf=${asOf}&windowStart=${winStart}&windowEnd=${winEnd}&direction=${direction}&notional=${notional}&applyXccy=${applyXccy}`;
+        const res = await fetch(url);
+        if (res.ok) data = await res.json();
+      } catch (e) {}
 
-    resBaseRate.textContent = `${data.baseRate}%`;
-    resQuoteRate.textContent = `${data.quoteRate}%`;
-    resXccyBasis.textContent = `${data.xccyBps} bps`;
+      if (!data && typeof CIP_CLIENT !== 'undefined') {
+        data = CIP_CLIENT.windowForward(pair, asOf, winStart, winEnd, direction, { applyXccy, notional });
+      }
 
-    const totalCashflow = notional * data.outrightForward;
-    resCashflow.textContent = `$${totalCashflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  } catch (err) {
-    console.error('FXFA calculation error:', err);
+      if (!data) throw new Error('Could not calculate window forward');
+
+      resDays.textContent = `${data.windowDurationDays} days`;
+      resSpotDate.textContent = `Open: ${data.windowStart} | Exp: ${data.windowEnd}`;
+      resSpot.textContent = data.spot;
+      resPoints.textContent = `${data.windowPoints >= 0 ? '+' : ''}${data.windowPoints} pips`;
+      resAnnPrm.textContent = `${data.directionLabel}`;
+      resOutright.textContent = data.windowRate;
+
+      winCurveStructure.textContent = data.curveStructure;
+      winStartRate.textContent = `${data.startDatePricing.outright} (${data.startDatePricing.points >= 0 ? '+' : ''}${data.startDatePricing.points} pips)`;
+      winEndRate.textContent = `${data.endDatePricing.outright} (${data.endDatePricing.points >= 0 ? '+' : ''}${data.endDatePricing.points} pips)`;
+      winWorstDate.textContent = `${data.worstCaseDate} (${data.worstCaseDays} days from spot)`;
+      winCarryCost.textContent = `${data.windowCost.pips} pips (${data.windowCost.cashflow.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${data.windowCost.currency})`;
+      winCashflow.textContent = `${data.notional.settlementCashflow.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${data.notional.quoteCurrency}`;
+
+      // Populate schedule table
+      windowScheduleTbody.innerHTML = '';
+      data.windowSchedule.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${row.date}</td>
+          <td class="text-right">${row.days}</td>
+          <td class="text-right ${row.swapPoints >= 0 ? 'positive' : 'negative'}">${row.swapPoints >= 0 ? '+' : ''}${row.swapPoints.toFixed(1)}</td>
+          <td class="text-right highlight"><strong>${row.outrightForward.toFixed(5)}</strong></td>
+        `;
+        windowScheduleTbody.appendChild(tr);
+      });
+    } catch (err) {
+      console.error('Window Forward pricing error:', err);
+    }
   }
 }
 
-// 8. Command Parser (Mimics Bloomberg Commands)
+// Command Parser
 function handleCommand(cmd) {
   cmd = cmd.trim().toUpperCase();
   if (!cmd) return;
 
   if (cmd === 'HELP' || cmd === 'F1') {
-    alert(`BLOOMBERG COMMAND HELP:
-• EURUSD FRD                - Show Forward Rate Display for EUR/USD
-• EURUSD COMP 2023-10-15 2024-09-15 - Compare two forward curves
-• USDJPY HIST               - Open historical tenor time series
-• EURUSD FXFA               - Open Broken Date analytics
-• F2 / F3 / F4 / F5         - Switch between tabs`);
+    alert(`TERMINAL COMMANDS:
+• EURUSD, USDEUR, GBPUSD, USDJPY, AUDUSD - Select pair & quoting direction
+• FRD [YYYY-MM-DD]       - Forward ladder (e.g. EURUSD FRD 2023-10-15)
+• COMP [Date1] [Date2]   - Compare two forward curves (e.g. EURUSD COMP 2023-10-15 2024-09-15)
+• HIST [Tenor]           - Time series chart (e.g. EURUSD HIST 3M)
+• PRICER                 - Open Fixed & Window Forward Calculator
+• INVERT                 - Toggle quoting direction (e.g. EUR:USD <-> USD:EUR)`);
+    return;
+  }
+
+  if (cmd === 'INVERT' || cmd === 'REVERSE') {
+    invertCurrentPair();
     return;
   }
 
   const parts = cmd.split(/\s+/);
-  const potentialPair = parts[0].replace('/', '');
+  const potentialPair = parts[0].replace(/[\/:]/g, '');
 
   if (AVAILABLE_PAIRS.some(p => p.symbol === potentialPair)) {
     ACTIVE_PAIR = potentialPair;
-    frdPairSelect.value = ACTIVE_PAIR;
-    compPairSelect.value = ACTIVE_PAIR;
-    histPairSelect.value = ACTIVE_PAIR;
-    fxfaPairSelect.value = ACTIVE_PAIR;
+    syncAllSelects(ACTIVE_PAIR);
 
     const fn = parts[1] || 'FRD';
-    if (fn === 'FRD') {
+    if (fn === 'FRD' || fn === 'LADDER') {
       if (parts[2]) frdDateInput.value = parts[2];
       switchTab('frd');
       loadForwardLadder();
@@ -611,34 +772,58 @@ function handleCommand(cmd) {
     } else if (fn === 'HIST') {
       if (parts[2]) histTenorSelect.value = parts[2];
       switchTab('hist');
-    } else if (fn === 'FXFA') {
-      switchTab('fxfa');
+    } else if (fn === 'PRICER' || fn === 'FXFA') {
+      switchTab('pricer');
+    } else {
+      loadForwardLadder();
     }
   }
 }
 
 commandInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    handleCommand(commandInput.value);
-  }
+  if (e.key === 'Enter') handleCommand(commandInput.value);
 });
 goBtn.addEventListener('click', () => handleCommand(commandInput.value));
 
-// Event Listeners for Controls
+// Invert Buttons
+bannerInvertBtn.addEventListener('click', invertCurrentPair);
+frdInvertBtn.addEventListener('click', invertCurrentPair);
+compInvertBtn.addEventListener('click', invertCurrentPair);
+histInvertBtn.addEventListener('click', invertCurrentPair);
+fxfaInvertBtn.addEventListener('click', invertCurrentPair);
+
+// Listeners for Selects & Controls
 frdRefreshBtn.addEventListener('click', loadForwardLadder);
-frdPairSelect.addEventListener('change', loadForwardLadder);
+frdPairSelect.addEventListener('change', () => {
+  ACTIVE_PAIR = frdPairSelect.value;
+  syncAllSelects(ACTIVE_PAIR);
+  loadForwardLadder();
+});
 frdXccyToggle.addEventListener('change', loadForwardLadder);
 
 compRunBtn.addEventListener('click', loadComparison);
-compPairSelect.addEventListener('change', loadComparison);
+compPairSelect.addEventListener('change', () => {
+  ACTIVE_PAIR = compPairSelect.value;
+  syncAllSelects(ACTIVE_PAIR);
+  loadComparison();
+});
 
 histRunBtn.addEventListener('click', loadHistory);
-histPairSelect.addEventListener('change', loadHistory);
+histPairSelect.addEventListener('change', () => {
+  ACTIVE_PAIR = histPairSelect.value;
+  syncAllSelects(ACTIVE_PAIR);
+  loadHistory();
+});
 histTenorSelect.addEventListener('change', loadHistory);
 
-fxfaCalculateBtn.addEventListener('click', calculateFXFA);
-fxfaPairSelect.addEventListener('change', calculateFXFA);
-fxfaXccyToggle.addEventListener('change', calculateFXFA);
+fxfaCalculateBtn.addEventListener('click', calculatePricer);
+fxfaPairSelect.addEventListener('change', () => {
+  ACTIVE_PAIR = fxfaPairSelect.value;
+  syncAllSelects(ACTIVE_PAIR);
+  calculatePricer();
+});
+fxfaXccyToggle.addEventListener('change', calculatePricer);
+fxfaDirection.addEventListener('change', calculatePricer);
 
 // Quick Date buttons
 document.querySelectorAll('.quick-date-btn').forEach(btn => {
@@ -694,12 +879,10 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     switchTab('hist');
   } else if (e.key === 'F5') {
-    // If not reloading browser
     if (e.ctrlKey) return;
     e.preventDefault();
-    switchTab('fxfa');
+    switchTab('pricer');
   }
 });
 
-// Start
 init();
