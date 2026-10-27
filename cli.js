@@ -78,7 +78,7 @@ function parseArgs() {
       options.window = [args[++i], args[++i]];
     } else if (args[i] === '--direction' && args[i + 1]) {
       const d = args[++i].toUpperCase();
-      options.direction = (d.includes('SELL') || d.includes('RHS')) && !d.includes('BUY') ? 'SELL_LHS' : 'BUY_LHS';
+      options.direction = (d === 'LHS' || d.includes('SELL')) ? 'LHS' : 'RHS';
     } else if (args[i] === '--notional' && args[i + 1]) {
       options.notional = parseFloat(args[++i]);
     } else if (args[i] === '--history') {
@@ -172,8 +172,8 @@ async function runWindow(pairKey, tradeDate, winStart, winEnd, direction, notion
   console.log(`${C.white}Conservative Pillar:      ${C.amber}${res.worstCaseDate} (${res.worstCaseDays} days from spot)${C.reset}`);
   console.log(`${C.dim}${'-'.repeat(75)}${C.reset}`);
 
-  console.log(`${C.green}${C.bold}WINDOW FORWARD BID:       ${res.windowBid} (Client SELLS LHS)${C.reset}`);
-  console.log(`${C.amber}${C.bold}WINDOW FORWARD ASK:       ${res.windowAsk} (Client BUYS LHS)${C.reset}`);
+  console.log(`${C.green}${C.bold}LHS FORWARD BID:          ${res.windowBid} (Client SELLS ${res.base} / BUYS ${res.quote})${C.reset}`);
+  console.log(`${C.amber}${C.bold}RHS FORWARD ASK:          ${res.windowAsk} (Client BUYS ${res.base} / SELLS ${res.quote})${C.reset}`);
   console.log(`${C.white}WINDOW POINTS (BID/ASK):  ${res.windowPointsBid >= 0 ? '+' : ''}${res.windowPointsBid} pips / ${res.windowPointsAsk >= 0 ? '+' : ''}${res.windowPointsAsk} pips${C.reset}`);
   console.log(`${C.white}CLIENT EXECUTABLE RATE:   ${C.amber}${C.bold}${res.windowRate}${C.reset} (${res.directionLabel})`);
   console.log(`${C.white}WINDOW CARRY PENALTY:     ${res.windowCost.pips} pips (${res.windowCost.cashflow.toLocaleString('en-US')} ${res.windowCost.currency})`);
@@ -261,8 +261,8 @@ async function runBroken(pairKey, tradeDate, targetSettlement, noXccy, customSpo
   console.log(`${C.white}XCCY BASIS SPREAD:        ${res.xccyBps} bps`);
   console.log(`${C.white}SWAP POINTS (BID/ASK):    ${res.pointsBid >= 0 ? '+' : ''}${res.pointsBid} / ${res.pointsAsk >= 0 ? '+' : ''}${res.pointsAsk} pips (Mid: ${res.swapPoints} pips)`);
   console.log(`${C.dim}${'-'.repeat(60)}${C.reset}`);
-  console.log(`${C.green}${C.bold}INTERBANK FORWARD BID:    ${res.forwardBid} (Client SELLS LHS)${C.reset}`);
-  console.log(`${C.amber}${C.bold}INTERBANK FORWARD ASK:    ${res.forwardAsk} (Client BUYS LHS)${C.reset}`);
+  console.log(`${C.green}${C.bold}LHS FORWARD BID:          ${res.forwardBid} (Client SELLS ${pair.base} / BUYS ${pair.quote})${C.reset}`);
+  console.log(`${C.amber}${C.bold}RHS FORWARD ASK:          ${res.forwardAsk} (Client BUYS ${pair.base} / SELLS ${pair.quote})${C.reset}`);
   console.log(`${C.white}FORWARD MID:              ${res.outrightForward}`);
   console.log(`${C.white}ANNUALIZED PREMIUM:       ${res.annPremiumPct}% p.a.${C.reset}\n`);
 }
