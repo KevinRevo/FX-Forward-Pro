@@ -79,35 +79,55 @@ const fxfaCalculateBtn = document.getElementById('fxfa-calculate-btn');
 
 // PRICER outputs
 const pricerResultHeading = document.getElementById('pricer-result-heading');
-const lblMetricDays = document.getElementById('lbl-metric-days');
-const lblMetricPts = document.getElementById('lbl-metric-pts');
 const lblMetricRate = document.getElementById('lbl-metric-rate');
 const resDays = document.getElementById('res-days');
 const resSpotDate = document.getElementById('res-spot-date');
 const resSpot = document.getElementById('res-spot');
-const resSpotSub = document.getElementById('res-spot-sub');
 const resPoints = document.getElementById('res-points');
 const resAnnPrm = document.getElementById('res-ann-prm');
 const resOutright = document.getElementById('res-outright');
 const resSubDesc = document.getElementById('res-sub-desc');
 
+// New Two-Way Bid/Ask elements
+const cardFwdBid = document.getElementById('card-fwd-bid');
+const cardFwdAsk = document.getElementById('card-fwd-ask');
+const resFwdBid = document.getElementById('res-fwd-bid');
+const resFwdAsk = document.getElementById('res-fwd-ask');
+const resPtsBid = document.getElementById('res-pts-bid');
+const resPtsAsk = document.getElementById('res-pts-ask');
+const resFwdMid = document.getElementById('res-fwd-mid');
+const resFwdSpread = document.getElementById('res-fwd-spread');
+const resDealDirection = document.getElementById('res-deal-direction');
+const resCashflow = document.getElementById('res-cashflow');
+
+// Window Boundaries elements
 const windowDecomposition = document.getElementById('window-decomposition');
 const winCurveStructure = document.getElementById('win-curve-structure');
-const winStartRate = document.getElementById('win-start-rate');
-const winEndRate = document.getElementById('win-end-rate');
+const cardBoundaryStart = document.getElementById('card-boundary-start');
+const cardBoundaryEnd = document.getElementById('card-boundary-end');
+const winStartDateLbl = document.getElementById('win-start-date-lbl');
+const winEndDateLbl = document.getElementById('win-end-date-lbl');
+const winStartBid = document.getElementById('win-start-bid');
+const winStartAsk = document.getElementById('win-start-ask');
+const winStartMid = document.getElementById('win-start-mid');
+const winStartPts = document.getElementById('win-start-pts');
+const winEndBid = document.getElementById('win-end-bid');
+const winEndAsk = document.getElementById('win-end-ask');
+const winEndMid = document.getElementById('win-end-mid');
+const winEndPts = document.getElementById('win-end-pts');
 const winWorstDate = document.getElementById('win-worst-date');
 const winCarryCost = document.getElementById('win-carry-cost');
-const winCashflow = document.getElementById('win-cashflow');
+
 const windowScheduleBox = document.getElementById('window-schedule-box');
 const windowScheduleTbody = document.getElementById('window-schedule-tbody');
 
+// Fixed forward elements
 const fixedDecomposition = document.getElementById('fixed-decomposition');
 const fixBidFwd = document.getElementById('fix-bid-fwd');
 const fixAskFwd = document.getElementById('fix-ask-fwd');
 const fixMidPts = document.getElementById('fix-mid-pts');
 const resBaseRate = document.getElementById('res-base-rate');
 const resQuoteRate = document.getElementById('res-quote-rate');
-const resCashflow = document.getElementById('res-cashflow');
 
 const BENCHMARK_PRESETS = [
   {
@@ -308,20 +328,20 @@ async function calculatePricer() {
   const applyXccy = fxfaXccyToggle.checked;
   const notional = parseFloat(fxfaNotional.value) || 1000000;
   const pairMeta = getPairMeta(pair);
+  const direction = fxfaDirection.value;
+  const isBuyLHS = (direction === 'BUY_LHS' || direction === 'BUY_BASE');
 
   if (PRICER_MODE === 'window') {
     // WINDOW FORWARD
     fixedDecomposition.style.display = 'none';
     windowDecomposition.style.display = 'block';
     windowScheduleBox.style.display = 'block';
-    lblMetricDays.textContent = 'WINDOW DURATION';
-    lblMetricPts.textContent = 'WINDOW POINTS';
-    lblMetricRate.textContent = 'GUARANTEED WINDOW RATE';
-    resSubDesc.textContent = 'Interbank Guaranteed Execution Rate';
+    pricerResultHeading.textContent = 'WINDOW FORWARD (FLEXIBLE DELIVERY) PRICING';
+    lblMetricRate.textContent = 'CLIENT EXECUTABLE RATE';
+    resSubDesc.textContent = 'Guaranteed Rate for Window Execution';
 
     const winStart = fxfaWindowStart.value;
     const winEnd = fxfaWindowEnd.value;
-    const direction = fxfaDirection.value;
 
     try {
       let data = null;
@@ -346,25 +366,69 @@ async function calculatePricer() {
       bannerSpotAsk.textContent = data.spotAsk.toFixed(pairMeta.quoteDecimals);
       bannerSpotMid.textContent = `(${data.spot.toFixed(pairMeta.quoteDecimals)})`;
 
-      // Update metrics
-      resDays.textContent = `${data.windowDurationDays} days`;
-      resSpotDate.textContent = `Spot Date: ${data.spotDate}`;
+      // 1. Meta Pills
       resSpot.textContent = data.spot.toFixed(pairMeta.quoteDecimals);
-      resSpotSub.textContent = `Bid: ${data.spotBid.toFixed(pairMeta.quoteDecimals)} / Ask: ${data.spotAsk.toFixed(pairMeta.quoteDecimals)}`;
-
-      const ptsSign = data.windowPoints >= 0 ? '+' : '';
-      resPoints.textContent = `${ptsSign}${data.windowPoints.toFixed(pairMeta.pipDecimals)} pips`;
-      resAnnPrm.textContent = data.curveStructure.includes('PREMIUM') ? 'Premium' : 'Discount';
-      resOutright.textContent = data.windowRate.toFixed(pairMeta.quoteDecimals);
-
+      resSpotDate.textContent = data.spotDate;
+      resDays.textContent = `${data.windowDurationDays}d flex`;
       winCurveStructure.textContent = data.curveStructure;
-      winStartRate.textContent = `Bid: ${data.startDatePricing.bid.toFixed(pairMeta.quoteDecimals)} | Ask: ${data.startDatePricing.ask.toFixed(pairMeta.quoteDecimals)} (${data.startDatePricing.pointsMid >= 0 ? '+' : ''}${data.startDatePricing.pointsMid.toFixed(pairMeta.pipDecimals)} pips)`;
-      winEndRate.textContent = `Bid: ${data.endDatePricing.bid.toFixed(pairMeta.quoteDecimals)} | Ask: ${data.endDatePricing.ask.toFixed(pairMeta.quoteDecimals)} (${data.endDatePricing.pointsMid >= 0 ? '+' : ''}${data.endDatePricing.pointsMid.toFixed(pairMeta.pipDecimals)} pips)`;
-      winWorstDate.textContent = `${data.worstCaseDate} (${data.worstCaseDays} days from spot)`;
-      winCarryCost.textContent = `${data.windowCost.pips.toFixed(pairMeta.pipDecimals)} pips (${data.windowCost.cashflow.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${data.windowCost.currency})`;
-      winCashflow.textContent = `${data.notional.rhsSettlementCashflow.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${data.notional.rhsCurrency} for ${data.notional.lhsAmount.toLocaleString('en-US')} ${data.notional.lhsCurrency}`;
 
-      // Corridor table
+      // 2. TWO-WAY BID / ASK DISPLAY
+      const wBid = data.windowBid != null ? data.windowBid : data.startDatePricing.bid;
+      const wAsk = data.windowAsk != null ? data.windowAsk : data.startDatePricing.ask;
+      const wPtsBid = data.windowPointsBid != null ? data.windowPointsBid : data.startDatePricing.pointsBid;
+      const wPtsAsk = data.windowPointsAsk != null ? data.windowPointsAsk : data.startDatePricing.pointsAsk;
+      const wMid = (wBid + wAsk) / 2;
+      const wSpread = (wAsk - wBid) / pairMeta.pipSize;
+
+      resFwdBid.textContent = wBid.toFixed(pairMeta.quoteDecimals);
+      resFwdAsk.textContent = wAsk.toFixed(pairMeta.quoteDecimals);
+      resPtsBid.textContent = `${wPtsBid >= 0 ? '+' : ''}${wPtsBid.toFixed(pairMeta.pipDecimals)} pips`;
+      resPtsAsk.textContent = `${wPtsAsk >= 0 ? '+' : ''}${wPtsAsk.toFixed(pairMeta.pipDecimals)} pips`;
+
+      resFwdMid.textContent = wMid.toFixed(pairMeta.quoteDecimals);
+      resFwdSpread.textContent = `${wSpread.toFixed(2)} pips`;
+      resPoints.textContent = `${data.windowPoints >= 0 ? '+' : ''}${data.windowPoints.toFixed(pairMeta.pipDecimals)} pips`;
+      resAnnPrm.textContent = data.curveStructure.includes('PREMIUM') ? 'Premium' : 'Discount';
+
+      // 3. Client Execution Deal Card (Active Side Highlight)
+      resOutright.textContent = data.windowRate.toFixed(pairMeta.quoteDecimals);
+      if (isBuyLHS) {
+        cardFwdAsk.classList.add('deal-active');
+        cardFwdBid.classList.remove('deal-active');
+        resDealDirection.textContent = `Client BUYS ${pairMeta.lhs} (LHS) @ Bank ASK: ${wAsk.toFixed(pairMeta.quoteDecimals)}`;
+      } else {
+        cardFwdBid.classList.add('deal-active');
+        cardFwdAsk.classList.remove('deal-active');
+        resDealDirection.textContent = `Client SELLS ${pairMeta.lhs} (LHS) @ Bank BID: ${wBid.toFixed(pairMeta.quoteDecimals)}`;
+      }
+      resCashflow.textContent = `${data.notional.rhsSettlementCashflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${data.notional.rhsCurrency} for ${data.notional.lhsAmount.toLocaleString('en-US')} ${data.notional.lhsCurrency}`;
+
+      // 4. Side-by-side Boundary Pillars (Start vs End)
+      winStartDateLbl.textContent = `${data.startDatePricing.date} (${data.startDatePricing.days}d)`;
+      winStartBid.textContent = data.startDatePricing.bid.toFixed(pairMeta.quoteDecimals);
+      winStartAsk.textContent = data.startDatePricing.ask.toFixed(pairMeta.quoteDecimals);
+      winStartMid.textContent = data.startDatePricing.mid.toFixed(pairMeta.quoteDecimals);
+      winStartPts.textContent = `${data.startDatePricing.pointsMid >= 0 ? '+' : ''}${data.startDatePricing.pointsMid.toFixed(pairMeta.pipDecimals)} pips`;
+
+      winEndDateLbl.textContent = `${data.endDatePricing.date} (${data.endDatePricing.days}d)`;
+      winEndBid.textContent = data.endDatePricing.bid.toFixed(pairMeta.quoteDecimals);
+      winEndAsk.textContent = data.endDatePricing.ask.toFixed(pairMeta.quoteDecimals);
+      winEndMid.textContent = data.endDatePricing.mid.toFixed(pairMeta.quoteDecimals);
+      winEndPts.textContent = `${data.endDatePricing.pointsMid >= 0 ? '+' : ''}${data.endDatePricing.pointsMid.toFixed(pairMeta.pipDecimals)} pips`;
+
+      // Highlight active conservative pillar
+      if (data.worstCaseDate === data.windowStart) {
+        cardBoundaryStart.classList.add('pillar-active');
+        cardBoundaryEnd.classList.remove('pillar-active');
+      } else {
+        cardBoundaryEnd.classList.add('pillar-active');
+        cardBoundaryStart.classList.remove('pillar-active');
+      }
+
+      winWorstDate.textContent = `${data.worstCaseDate} (${data.worstCaseDays}d from spot - Conservative Carry Boundary)`;
+      winCarryCost.textContent = `${data.windowCost.pips.toFixed(pairMeta.pipDecimals)} pips (${data.windowCost.cashflow.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${data.windowCost.currency})`;
+
+      // 5. Corridor table
       windowScheduleTbody.innerHTML = '';
       data.windowSchedule.forEach(row => {
         const tr = document.createElement('tr');
@@ -372,8 +436,8 @@ async function calculatePricer() {
           <td><strong>${row.date}</strong></td>
           <td class="text-right">${row.days}</td>
           <td class="text-right ${row.swapPoints >= 0 ? 'positive' : 'negative'}">${row.swapPoints >= 0 ? '+' : ''}${row.swapPoints.toFixed(pairMeta.pipDecimals)}</td>
-          <td class="text-right">${row.forwardBid.toFixed(pairMeta.quoteDecimals)}</td>
-          <td class="text-right highlight"><strong>${row.forwardAsk.toFixed(pairMeta.quoteDecimals)}</strong></td>
+          <td class="text-right green-text">${row.forwardBid.toFixed(pairMeta.quoteDecimals)}</td>
+          <td class="text-right amber-text"><strong>${row.forwardAsk.toFixed(pairMeta.quoteDecimals)}</strong></td>
         `;
         windowScheduleTbody.appendChild(tr);
       });
@@ -385,10 +449,9 @@ async function calculatePricer() {
     fixedDecomposition.style.display = 'block';
     windowDecomposition.style.display = 'none';
     windowScheduleBox.style.display = 'none';
-    lblMetricDays.textContent = 'DAYS TO SETTLE';
-    lblMetricPts.textContent = 'SWAP POINTS';
-    lblMetricRate.textContent = 'MID FORWARD RATE';
-    resSubDesc.textContent = 'Fixed Maturity Settlement Price';
+    pricerResultHeading.textContent = 'FIXED FORWARD (SINGLE MATURITY) PRICING';
+    lblMetricRate.textContent = 'CLIENT EXECUTABLE RATE';
+    resSubDesc.textContent = 'Fixed Settlement Delivery Rate';
 
     const settle = fxfaSettleDate.value;
 
@@ -406,24 +469,43 @@ async function calculatePricer() {
 
       if (!data) throw new Error('Could not calculate fixed forward');
 
-      resDays.textContent = `${data.days} days`;
-      resSpotDate.textContent = `Spot Date: ${data.spotDate}`;
       resSpot.textContent = data.spot.toFixed(pairMeta.quoteDecimals);
-      resSpotSub.textContent = `Bid: ${data.spotBid.toFixed(pairMeta.quoteDecimals)} / Ask: ${data.spotAsk.toFixed(pairMeta.quoteDecimals)}`;
+      resSpotDate.textContent = data.spotDate;
+      resDays.textContent = `${data.days} days`;
+      winCurveStructure.textContent = data.outrightForward >= data.spot ? 'PREMIUM' : 'DISCOUNT';
 
-      const ptsSign = data.swapPoints >= 0 ? '+' : '';
-      resPoints.textContent = `${ptsSign}${data.swapPoints.toFixed(pairMeta.pipDecimals)} pips`;
+      const fSpread = (data.forwardAsk - data.forwardBid) / pairMeta.pipSize;
+      resFwdBid.textContent = data.forwardBid.toFixed(pairMeta.quoteDecimals);
+      resFwdAsk.textContent = data.forwardAsk.toFixed(pairMeta.quoteDecimals);
+      resPtsBid.textContent = `${data.pointsBid >= 0 ? '+' : ''}${data.pointsBid.toFixed(pairMeta.pipDecimals)} pips`;
+      resPtsAsk.textContent = `${data.pointsAsk >= 0 ? '+' : ''}${data.pointsAsk.toFixed(pairMeta.pipDecimals)} pips`;
+
+      resFwdMid.textContent = data.outrightForward.toFixed(pairMeta.quoteDecimals);
+      resFwdSpread.textContent = `${fSpread.toFixed(2)} pips`;
+      resPoints.textContent = `${data.swapPoints >= 0 ? '+' : ''}${data.swapPoints.toFixed(pairMeta.pipDecimals)} pips`;
       resAnnPrm.textContent = `${data.annPremiumPct >= 0 ? '+' : ''}${data.annPremiumPct.toFixed(2)}% Ann.`;
-      resOutright.textContent = data.outrightForward.toFixed(pairMeta.quoteDecimals);
+
+      // Dealing execution
+      const clientRate = isBuyLHS ? data.forwardAsk : data.forwardBid;
+      resOutright.textContent = clientRate.toFixed(pairMeta.quoteDecimals);
+      if (isBuyLHS) {
+        cardFwdAsk.classList.add('deal-active');
+        cardFwdBid.classList.remove('deal-active');
+        resDealDirection.textContent = `Client BUYS ${pairMeta.lhs} (LHS) @ Bank ASK: ${data.forwardAsk.toFixed(pairMeta.quoteDecimals)}`;
+      } else {
+        cardFwdBid.classList.add('deal-active');
+        cardFwdAsk.classList.remove('deal-active');
+        resDealDirection.textContent = `Client SELLS ${pairMeta.lhs} (LHS) @ Bank BID: ${data.forwardBid.toFixed(pairMeta.quoteDecimals)}`;
+      }
+
+      const totalCash = notional * clientRate;
+      resCashflow.textContent = `${totalCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${data.rhs} for ${notional.toLocaleString('en-US')} ${data.lhs}`;
 
       fixBidFwd.textContent = data.forwardBid.toFixed(pairMeta.quoteDecimals);
       fixAskFwd.textContent = data.forwardAsk.toFixed(pairMeta.quoteDecimals);
-      fixMidPts.textContent = `${ptsSign}${data.swapPoints.toFixed(pairMeta.pipDecimals)} pips`;
+      fixMidPts.textContent = `${data.swapPoints >= 0 ? '+' : ''}${data.swapPoints.toFixed(pairMeta.pipDecimals)} pips`;
       resBaseRate.textContent = `${data.baseRate.toFixed(2)}%`;
       resQuoteRate.textContent = `${data.quoteRate.toFixed(2)}%`;
-
-      const totalCash = notional * data.outrightForward;
-      resCashflow.textContent = `${totalCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${data.rhs}`;
     } catch (err) {
       console.error('Fixed Forward pricing error:', err);
     }
