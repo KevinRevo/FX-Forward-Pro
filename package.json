@@ -1,6 +1,7 @@
 {
-  "name": "bloomberg-like",
-  "version": "1.0.0",
+  "name": "fx-forward-pro",
+  "version": "2.0.0",
+  "description": "Institutional Interbank FX Forward Analytics, Fixed & Window Forward CIP Engine",
   "main": "cli.js",
   "bin": {
     "fx-forward": "./cli.js"
@@ -9,10 +10,15 @@
     "start": "node src/server/server.js",
     "cli": "node cli.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "fx",
+    "forward",
+    "cip",
+    "window-forward",
+    "swap-points"
+  ],
+  "author": "Kevin",
+  "license": "MIT",
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.3.0"
