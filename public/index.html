@@ -38,11 +38,11 @@
       </div>
     </div>
 
-    <!-- Active Security Banner with LHS / RHS breakdown -->
+    <!-- Active Security Banner -->
     <div class="security-banner">
       <div class="sec-left">
-        <span class="sec-pair" id="active-pair-name">EUR:GBP</span>
-        <span class="lhs-rhs-badge" id="banner-lhs-rhs-badge">LHS: EUR | RHS: GBP</span>
+        <span class="sec-pair" id="active-pair-name">EUR/GBP</span>
+        <span class="lhs-rhs-badge" id="banner-lhs-rhs-badge">EUR/GBP</span>
         <span class="sec-spot-label">SPOT:</span>
         <span class="sec-spot-bid" id="banner-spot-bid">0.8565</span>
         <span class="sec-spot-slash">/</span>
@@ -50,9 +50,9 @@
         <span class="sec-spot-mid" id="banner-spot-mid">(0.85660)</span>
       </div>
       <div class="sec-right">
-        <span class="sec-tag">LHS (<span id="banner-lhs-code">EUR</span>): <span id="banner-base-rate" class="rate-val">€STR 2.75%</span> (ACT/360)</span>
+        <span class="sec-tag">Base (<span id="banner-base-code">EUR</span>): <span id="banner-base-rate" class="rate-val">€STR 2.75%</span> (ACT/360)</span>
         <span class="sec-separator">|</span>
-        <span class="sec-tag">RHS (<span id="banner-rhs-code">GBP</span>): <span id="banner-quote-rate" class="rate-val">SONIA 1.37%</span> (ACT/365)</span>
+        <span class="sec-tag">Terms (<span id="banner-quote-code">GBP</span>): <span id="banner-quote-rate" class="rate-val">SONIA 1.37%</span> (ACT/365)</span>
         <span class="sec-separator">|</span>
         <span class="sec-tag">XCCY BASIS: <span id="banner-xccy-basis" class="rate-val">0.0 bps</span></span>
       </div>
@@ -92,7 +92,7 @@
 
             <!-- Currency Pair -->
             <div class="form-row">
-              <label for="fxfa-pair-select">Currency Pair (LHS : RHS):</label>
+              <label for="fxfa-pair-select">Currency Pair:</label>
               <select id="fxfa-pair-select" class="bbg-select"></select>
             </div>
 
@@ -129,18 +129,18 @@
               <input type="date" id="fxfa-settle-date" class="bbg-input" value="2026-11-02">
             </div>
 
-            <!-- Trading Direction (LHS / RHS) -->
+            <!-- Quotation Side: LHS (Client sells base / buys quote @ Bid) vs RHS (Client buys base / sells quote @ Ask) -->
             <div class="form-row" id="row-direction">
-              <label for="fxfa-direction">Client Dealing Direction:</label>
+              <label for="fxfa-direction">Quotation Side (LHS / RHS):</label>
               <select id="fxfa-direction" class="bbg-select">
-                <option value="BUY_LHS" selected>Client BUYS LHS / SELLS RHS (Buy EUR, Pay GBP)</option>
-                <option value="SELL_LHS">Client SELLS LHS / BUYS RHS (Sell EUR, Receive GBP)</option>
+                <option value="LHS">LHS — Client Sells EUR / Buys GBP (Bank Buys @ Bid)</option>
+                <option value="RHS" selected>RHS — Client Buys EUR / Sells GBP (Bank Sells @ Ask)</option>
               </select>
             </div>
 
             <!-- Notional -->
             <div class="form-row">
-              <label for="fxfa-notional">LHS Notional Amount:</label>
+              <label for="fxfa-notional" id="lbl-notional">EUR Deal Notional Amount:</label>
               <input type="number" id="fxfa-notional" class="bbg-input" value="1000000" step="50000">
             </div>
 
@@ -166,35 +166,35 @@
               </div>
             </div>
 
-            <!-- TWO-WAY INTERBANK DEALING BOARD (BID / ASK) -->
+            <!-- TWO-WAY INTERBANK DEALING BOARD (LHS BID / RHS ASK) -->
             <div class="two-way-pricing-board">
-              <!-- BID SIDE -->
+              <!-- LHS BID SIDE -->
               <div class="two-way-card bid-card" id="card-fwd-bid">
                 <div class="two-way-header">
-                  <span class="badge-role bid-role">CLIENT SELLS LHS (EUR)</span>
+                  <span class="badge-role bid-role">LHS (BID)</span>
                   <span class="badge-type">BANK BUYS @ BID</span>
                 </div>
                 <div class="rate-display">
-                  <span class="two-way-rate green-rate" id="res-fwd-bid">0.854321</span>
+                  <span class="two-way-rate green-rate" id="res-fwd-bid">0.854320</span>
                 </div>
                 <div class="two-way-sub">
-                  <span>Swap Points (Bid):</span>
-                  <strong id="res-pts-bid" class="negative">-22.8 pips</strong>
+                  <span id="lbl-lhs-client-role">Client Sells EUR / Buys GBP</span>
+                  <strong id="res-pts-bid" class="negative">-22.7 pips</strong>
                 </div>
               </div>
 
-              <!-- ASK SIDE -->
+              <!-- RHS ASK SIDE -->
               <div class="two-way-card ask-card" id="card-fwd-ask">
                 <div class="two-way-header">
-                  <span class="badge-role ask-role">CLIENT BUYS LHS (EUR)</span>
+                  <span class="badge-role ask-role">RHS (ASK / OFFER)</span>
                   <span class="badge-type">BANK SELLS @ ASK</span>
                 </div>
                 <div class="rate-display">
-                  <span class="two-way-rate amber-rate" id="res-fwd-ask">0.854437</span>
+                  <span class="two-way-rate amber-rate" id="res-fwd-ask">0.854436</span>
                 </div>
                 <div class="two-way-sub">
-                  <span>Swap Points (Ask):</span>
-                  <strong id="res-pts-ask" class="negative">-21.6 pips</strong>
+                  <span id="lbl-rhs-client-role">Client Buys EUR / Sells GBP</span>
+                  <strong id="res-pts-ask" class="negative">-21.7 pips</strong>
                 </div>
               </div>
             </div>
@@ -321,11 +321,11 @@
                 <span id="fix-mid-pts" class="rate-val">-22.2 pips</span>
               </div>
               <div class="decomp-row">
-                <span>LHS Base Zero Rate (ACT/360):</span>
+                <span>Base Zero Rate (<span id="fix-base-name">EUR</span> ACT/360):</span>
                 <span id="res-base-rate" class="rate-val">2.75%</span>
               </div>
               <div class="decomp-row">
-                <span>RHS Terms Zero Rate (ACT/365):</span>
+                <span>Terms Zero Rate (<span id="fix-quote-name">GBP</span> ACT/365):</span>
                 <span id="res-quote-rate" class="rate-val">1.37%</span>
               </div>
             </div>
