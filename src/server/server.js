@@ -1,16 +1,18 @@
 /**
- * Bloomberg-Style FX Forward Interbank API Server
+ * Institutional Interbank FX Forward API Server
+ * Supports standard Fixed Forwards and Window Forwards (Flexible delivery).
  */
 
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { PAIRS, STANDARD_TENORS, CURRENCIES } = require('../fx-engine/conventions');
+const { PAIRS, STANDARD_TENORS, CURRENCIES, getInvertedPairKey } = require('../fx-engine/conventions');
 const {
   getForwardLadder,
   calculateBrokenDateForward,
   compareForwardCurves,
-  getTenorHistory
+  getTenorHistory,
+  calculateWindowForward
 } = require('../fx-engine/cip-calculator');
 
 const app = express();
@@ -56,7 +58,7 @@ const HISTORICAL_PRESETS = [
   }
 ];
 
-// 1. Get pairs & conventions
+// 1. Get pairs & conventions (includes inverted pairs)
 app.get('/api/pairs', (req, res) => {
   res.json({
     pairs: Object.values(PAIRS),
@@ -70,7 +72,7 @@ app.get('/api/presets', (req, res) => {
   res.json(HISTORICAL_PRESETS);
 });
 
-// 3. Forward Rate Display (FRD ladder)
+// 3. Forward Rate Display (Tenor ladder)
 app.get('/api/forward-ladder', async (req, res) => {
   try {
     const pair = req.query.pair || 'EURUSD';
@@ -85,7 +87,7 @@ app.get('/api/forward-ladder', async (req, res) => {
   }
 });
 
-// 4. Compare Forward Curves (COMP)
+// 4. Compare Forward Curves
 app.get('/api/forward-compare', async (req, res) => {
   try {
     const pair = req.query.pair || 'EURUSD';
@@ -101,7 +103,7 @@ app.get('/api/forward-compare', async (req, res) => {
   }
 });
 
-// 5. Broken Date Calculator (FXFA)
+// 5. Fixed Forward / Broken Date Calculator
 app.get('/api/broken-date', async (req, res) => {
   try {
     const pair = req.query.pair || 'EURUSD';
@@ -121,7 +123,33 @@ app.get('/api/broken-date', async (req, res) => {
   }
 });
 
-// 6. Historical Time Series for a Tenor
+// 6. Window Forward (Flexible forward) Calculator
+app.get('/api/window-forward', async (req, res) => {
+  try {
+    const pair = req.query.pair || 'EURUSD';
+    const asOf = req.query.asOf || new Date().toISOString().split('T')[0];
+    const windowStart = req.query.windowStart;
+    const windowEnd = req.query.windowEnd;
+    const direction = req.query.direction || 'BUY_BASE';
+    const notional = parseFloat(req.query.notional) || 1000000;
+    const applyXccy = req.query.applyXccy !== 'false';
+
+    if (!windowStart || !windowEnd) {
+      return res.status(400).json({ error: 'Missing windowStart or windowEnd (YYYY-MM-DD)' });
+    }
+
+    const result = await calculateWindowForward(pair, asOf, windowStart, windowEnd, direction, {
+      applyXccy,
+      notional
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('Error in /api/window-forward:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 7. Historical Time Series for a Tenor
 app.get('/api/forward-history', async (req, res) => {
   try {
     const pair = req.query.pair || 'EURUSD';
@@ -145,7 +173,7 @@ app.get('/api/health', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`=======================================================`);
-  console.log(` BLOOMBERG FX FORWARD TERMINAL RUNNING ON PORT ${PORT}`);
+  console.log(` INTERBANK FX FORWARD TERMINAL RUNNING ON PORT ${PORT}`);
   console.log(` Web Interface: http://localhost:${PORT}`);
   console.log(`=======================================================`);
 });
