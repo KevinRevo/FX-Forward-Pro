@@ -161,7 +161,8 @@ async function runWindow(pairKey, tradeDate, winStart, winEnd, direction, notion
   });
 
   console.log(`${C.white}${C.bold}PAIR: ${C.amber}${res.pairName} (${res.pair})${C.reset}`);
-  console.log(`${C.white}TRADE DATE: ${C.cyan}${res.tradeDate}${C.reset}  -->  ${C.white}SPOT DATE: ${C.cyan}${res.spotDate}${C.reset} (Spot: ${res.spot})`);
+  console.log(`${C.white}TRADE DATE: ${C.cyan}${res.tradeDate}${C.reset}  -->  ${C.white}SPOT DATE: ${C.cyan}${res.spotDate}${C.reset}`);
+  console.log(`${C.white}SPOT LHS (BID):           ${C.green}${C.bold}${res.spotBid}${C.reset}  |  ${C.white}SPOT RHS (ASK): ${C.amber}${C.bold}${res.spotAsk}${C.reset} (Mid: ${res.spot})`);
   console.log(`${C.white}WINDOW PERIOD: ${C.cyan}${res.windowStart}${C.reset} to ${C.cyan}${res.windowEnd}${C.reset} (${res.windowDurationDays} days flexibility)`);
   console.log(`${C.white}TRADING DIRECTION: ${C.bold}${res.directionLabel}${C.reset}`);
   console.log(`${C.dim}${'-'.repeat(75)}${C.reset}`);
@@ -175,6 +176,8 @@ async function runWindow(pairKey, tradeDate, winStart, winEnd, direction, notion
   console.log(`${C.green}${C.bold}LHS FORWARD BID:          ${res.windowBid} (Client SELLS ${res.base} / BUYS ${res.quote})${C.reset}`);
   console.log(`${C.amber}${C.bold}RHS FORWARD ASK:          ${res.windowAsk} (Client BUYS ${res.base} / SELLS ${res.quote})${C.reset}`);
   console.log(`${C.white}WINDOW POINTS (BID/ASK):  ${res.windowPointsBid >= 0 ? '+' : ''}${res.windowPointsBid} pips / ${res.windowPointsAsk >= 0 ? '+' : ''}${res.windowPointsAsk} pips${C.reset}`);
+  const dealSpot = res.direction === 'LHS' ? res.spotBid : res.spotAsk;
+  console.log(`${C.white}APPLIED DEAL SPOT:        ${C.cyan}${dealSpot}${C.reset} (${res.direction === 'LHS' ? 'Spot LHS / Bid' : 'Spot RHS / Ask'})`);
   console.log(`${C.white}CLIENT EXECUTABLE RATE:   ${C.amber}${C.bold}${res.windowRate}${C.reset} (${res.directionLabel})`);
   console.log(`${C.white}WINDOW CARRY PENALTY:     ${res.windowCost.pips} pips (${res.windowCost.cashflow.toLocaleString('en-US')} ${res.windowCost.currency})`);
   console.log(`${C.white}SETTLEMENT CASHFLOW:      ${C.bold}${res.notional.rhsSettlementCashflow.toLocaleString('en-US')} ${res.notional.rhsCurrency}${C.reset} for ${res.notional.lhsAmount.toLocaleString('en-US')} ${res.notional.lhsCurrency}\n`);
@@ -255,7 +258,7 @@ async function runBroken(pairKey, tradeDate, targetSettlement, noXccy, customSpo
   console.log(`${C.white}TRADE DATE: ${C.cyan}${res.tradeDate}${C.reset}  -->  ${C.white}SPOT DATE: ${C.cyan}${res.spotDate}${C.reset}`);
   console.log(`${C.white}FIXED SETTLEMENT DATE: ${C.amber}${C.bold}${res.maturityDate}${C.reset} (${C.white}${res.days} calendar days${C.reset})`);
   console.log(`${C.dim}${'-'.repeat(60)}${C.reset}`);
-  console.log(`${C.white}SPOT BID / ASK:           ${C.green}${res.spotBid}${C.reset} / ${C.amber}${res.spotAsk}${C.reset} (Mid: ${res.spot})`);
+  console.log(`${C.white}SPOT LHS (BID):           ${C.green}${C.bold}${res.spotBid}${C.reset}  |  ${C.white}SPOT RHS (ASK): ${C.amber}${C.bold}${res.spotAsk}${C.reset} (Mid: ${res.spot})`);
   console.log(`${C.white}INTERPOLATED BASE RATE:   ${C.cyan}${res.baseRate.toFixed(3)}%${C.reset}`);
   console.log(`${C.white}INTERPOLATED QUOTE RATE:  ${C.cyan}${res.quoteRate.toFixed(3)}%${C.reset}`);
   console.log(`${C.white}XCCY BASIS SPREAD:        ${res.xccyBps} bps`);
