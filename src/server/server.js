@@ -109,7 +109,7 @@ app.get('/api/broken-date', async (req, res) => {
     const pair = req.query.pair || 'EURUSD';
     const asOf = req.query.asOf || new Date().toISOString().split('T')[0];
     const settlement = req.query.settlement;
-    const spot = req.query.spot ? parseFloat(req.query.spot) : null;
+    const spot = req.query.spot ? parseFloat(req.query.spot.toString().replace(',', '.')) : null;
     const applyXccy = req.query.applyXccy !== 'false';
 
     if (!settlement) {
@@ -132,7 +132,7 @@ app.get('/api/window-forward', async (req, res) => {
     const windowStart = req.query.windowStart;
     const windowEnd = req.query.windowEnd;
     const direction = req.query.direction || 'BUY_LHS';
-    const spot = req.query.spot ? parseFloat(req.query.spot) : null;
+    const spot = req.query.spot ? parseFloat(req.query.spot.toString().replace(',', '.')) : null;
     const notional = parseFloat(req.query.notional) || 1000000;
     const applyXccy = req.query.applyXccy !== 'false';
 
