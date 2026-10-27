@@ -4,6 +4,58 @@
    semantic styling, logical CSS properties)
    ========================================================================== */
 
+/* LHS / RHS Badges and Dual Form Rows */
+.lhs-rhs-badge {
+  background-color: #1a2a38;
+  color: var(--bbg-cyan);
+  border: 1px solid var(--bbg-cyan-dim);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.5px;
+}
+
+.form-row-dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.spot-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spot-input-wrap input {
+  flex: 1;
+}
+
+.bbg-action-btn-mini {
+  background-color: #1a2734;
+  color: var(--bbg-cyan);
+  border: 1px solid #2b3d50;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.15s;
+}
+
+.bbg-action-btn-mini:hover {
+  background-color: var(--bbg-cyan);
+  color: var(--bbg-black);
+}
+
+.highlight-row {
+  background-color: rgba(255, 153, 0, 0.08);
+  border-left: 2px solid var(--bbg-amber);
+  padding-left: 6px !important;
+}
+
 /* Invert Direction Buttons */
 .bbg-invert-btn {
   background-color: #213242;
