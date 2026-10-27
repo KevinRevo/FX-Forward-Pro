@@ -404,7 +404,7 @@ const CIP_CLIENT = (() => {
     };
   }
 
-  function brokenDate(pairKey, asOf, settle, applyXccy = true, customSpot = null) {
+  function brokenDate(pairKey, asOf, settle, applyXccy = true, customSpot = null, options = {}) {
     const pair = PAIRS[pairKey] || PAIRS.EURUSD;
     const spot = getSpotRate(pairKey, asOf, customSpot);
     const spotDate = getSpotDate(asOf, pair.spotLag);
@@ -630,10 +630,27 @@ const CIP_CLIENT = (() => {
     return { pair: pairKey, tenor, series };
   }
 
+  function getSpotBidAsk(pairKey, dateStr, customSpot = null, direction = 'RHS') {
+    const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+    const spotMid = getSpotRate(pairKey, dateStr, customSpot);
+    const spotSpreadPips = pair.typicalSpreadPips['1M'] || 0.4;
+    const spotBid = parseFloat((spotMid - spotSpreadPips * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
+    const spotAsk = parseFloat((spotMid + spotSpreadPips * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
+    const isLHS = (direction === 'LHS' || direction === 'SELL_LHS' || direction === 'SELL');
+    return {
+      mid: spotMid,
+      bid: spotBid,
+      ask: spotAsk,
+      rateForDirection: isLHS ? spotBid : spotAsk
+    };
+  }
+
   return {
     CURRENCIES,
     PAIRS,
     STANDARD_TENORS,
+    getSpotRate,
+    getSpotBidAsk,
     computeLadder,
     compareCurves,
     brokenDate,
