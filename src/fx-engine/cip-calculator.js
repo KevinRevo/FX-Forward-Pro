@@ -151,13 +151,16 @@ async function getForwardLadder(pairKey, tradeDateStr, options = {}) {
 }
 
 /**
- * Broken-Date Forward Calculator (FXFA functionality)
+ * Broken-Date Forward Calculator
  */
 async function calculateBrokenDateForward(pairKey, tradeDateStr, targetMaturityStr, options = {}) {
   const pair = PAIRS[pairKey] || PAIRS.EURUSD;
   const applyXccy = options.applyXccy !== false;
 
-  const spotMid = await getSpotRate(pairKey, tradeDateStr);
+  const spotMid = (options.spot != null && parseFloat(options.spot) > 0)
+    ? parseFloat(options.spot)
+    : await getSpotRate(pairKey, tradeDateStr);
+
   const spotDate = getSpotDate(tradeDateStr, pairKey);
   const spotDateStr = formatDateISO(spotDate);
 
@@ -172,7 +175,7 @@ async function calculateBrokenDateForward(pairKey, tradeDateStr, targetMaturityS
 
   const baseRate = interpolateRateForDays(baseCurve, days);
   const quoteRate = interpolateRateForDays(quoteCurve, days);
-  const xccyBps = applyXccy ? getCrossCurrencyBasisBps(pairKey, tradeDateStr, '3M') : 0;
+  const xccyBps = applyXccy ? getCrossCurrencyBasisBps(pairKey, tradeDateStr, days > 90 ? '6M' : '3M') : 0;
 
   const fwdMid = calculateOutrightForward(
     spotMid,
@@ -187,18 +190,41 @@ async function calculateBrokenDateForward(pairKey, tradeDateStr, targetMaturityS
   const pointsMid = (fwdMid - spotMid) / pair.pipSize;
   const annPremiumPct = ((fwdMid - spotMid) / spotMid) * (360 / days) * 100;
 
+  // Interbank Bid / Ask pricing
+  const defaultSpreadPips = days <= 30 ? 0.3 : (days <= 90 ? 0.5 : (days <= 180 ? 0.8 : 1.2));
+  const pointsSpread = options.spreadPips || pair.typicalSpreadPips['3M'] || defaultSpreadPips;
+  const spotSpread = pair.typicalSpreadPips['1M'] || 0.5;
+
+  const spotBid = parseFloat((spotMid - spotSpread * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
+  const spotAsk = parseFloat((spotMid + spotSpread * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
+
+  const pointsBid = pointsMid - (pointsSpread * 0.5);
+  const pointsAsk = pointsMid + (pointsSpread * 0.5);
+
+  const fwdBid = spotBid + (pointsBid * pair.pipSize);
+  const fwdAsk = spotAsk + (pointsAsk * pair.pipSize);
+
   return {
     pair: pair.symbol,
+    pairName: pair.name,
+    lhs: pair.lhs,
+    rhs: pair.rhs,
     tradeDate: tradeDateStr,
     spotDate: spotDateStr,
     maturityDate: targetMaturityStr,
     days,
     spot: spotMid,
+    spotBid,
+    spotAsk,
     baseRate: parseFloat(baseRate.toFixed(4)),
     quoteRate: parseFloat(quoteRate.toFixed(4)),
     xccyBps: parseFloat(xccyBps.toFixed(2)),
     swapPoints: parseFloat(pointsMid.toFixed(pair.pipDecimals)),
+    pointsBid: parseFloat(pointsBid.toFixed(pair.pipDecimals)),
+    pointsAsk: parseFloat(pointsAsk.toFixed(pair.pipDecimals)),
     outrightForward: parseFloat(fwdMid.toFixed(pair.quoteDecimals)),
+    forwardBid: parseFloat(fwdBid.toFixed(pair.quoteDecimals)),
+    forwardAsk: parseFloat(fwdAsk.toFixed(pair.quoteDecimals)),
     annPremiumPct: parseFloat(annPremiumPct.toFixed(3))
   };
 }
@@ -305,74 +331,79 @@ async function getTenorHistory(pairKey, tenor = '3M', startDateStr, endDateStr, 
  * Prices an American-style delivery forward executable anytime between windowStart and windowEnd.
  * Applies the conservative interbank boundary principle (worst-case carry for client).
  */
-async function calculateWindowForward(pairKey, tradeDateStr, windowStartStr, windowEndStr, direction = 'BUY_BASE', options = {}) {
+async function calculateWindowForward(pairKey, tradeDateStr, windowStartStr, windowEndStr, direction = 'BUY_LHS', options = {}) {
   const pair = PAIRS[pairKey] || PAIRS.EURUSD;
   const applyXccy = options.applyXccy !== false;
   const notional = parseFloat(options.notional) || 1000000;
+  const customSpot = options.spot != null && parseFloat(options.spot) > 0 ? parseFloat(options.spot) : null;
 
   // 1. Calculate pricing at Window Start & Window End
-  const startFwd = await calculateBrokenDateForward(pairKey, tradeDateStr, windowStartStr, { applyXccy });
-  const endFwd = await calculateBrokenDateForward(pairKey, tradeDateStr, windowEndStr, { applyXccy });
+  const startFwd = await calculateBrokenDateForward(pairKey, tradeDateStr, windowStartStr, { applyXccy, spot: customSpot, spreadPips: options.spreadPips });
+  const endFwd = await calculateBrokenDateForward(pairKey, tradeDateStr, windowEndStr, { applyXccy, spot: customSpot, spreadPips: options.spreadPips });
 
   const isUpwardSloping = endFwd.outrightForward >= startFwd.outrightForward;
 
   let windowRate;
   let worstCaseDate;
   let worstCaseDays;
-  let favorableRate;
+  let windowPoints;
 
-  if (direction === 'BUY_BASE') {
-    // Client Buys Base / Sells Quote (e.g. Buys EUR, Pays USD)
-    // Client wants lowest rate. Bank guarantees rate, prices at HIGHEST rate across window.
-    if (isUpwardSloping) {
-      windowRate = endFwd.outrightForward;
+  const isBuyLHS = (direction === 'BUY_LHS' || direction === 'BUY_BASE');
+
+  if (isBuyLHS) {
+    // Client BUYS LHS / SELLS RHS (e.g. Buys EUR, Pays GBP/USD)
+    // Client wants lowest rate. Bank sells LHS at Ask.
+    // Least favorable rate for client is the HIGHEST Ask price across the window.
+    if (endFwd.forwardAsk >= startFwd.forwardAsk) {
+      windowRate = endFwd.forwardAsk;
       worstCaseDate = windowEndStr;
       worstCaseDays = endFwd.days;
-      favorableRate = startFwd.outrightForward;
     } else {
-      windowRate = startFwd.outrightForward;
+      windowRate = startFwd.forwardAsk;
       worstCaseDate = windowStartStr;
       worstCaseDays = startFwd.days;
-      favorableRate = endFwd.outrightForward;
     }
+    windowPoints = (windowRate - startFwd.spotAsk) / pair.pipSize;
   } else {
-    // Client Sells Base / Buys Quote (e.g. Sells EUR, Receives USD)
-    // Client wants highest rate. Bank guarantees rate, prices at LOWEST rate across window.
-    if (isUpwardSloping) {
-      windowRate = startFwd.outrightForward;
-      worstCaseDate = windowStartStr;
-      worstCaseDays = startFwd.days;
-      favorableRate = endFwd.outrightForward;
-    } else {
-      windowRate = endFwd.outrightForward;
+    // Client SELLS LHS / BUYS RHS (e.g. Sells EUR, Receives GBP/USD)
+    // Client wants highest rate. Bank buys LHS at Bid.
+    // Least favorable rate for client is the LOWEST Bid price across the window.
+    if (endFwd.forwardBid <= startFwd.forwardBid) {
+      windowRate = endFwd.forwardBid;
       worstCaseDate = windowEndStr;
       worstCaseDays = endFwd.days;
-      favorableRate = startFwd.outrightForward;
+    } else {
+      windowRate = startFwd.forwardBid;
+      worstCaseDate = windowStartStr;
+      worstCaseDays = startFwd.days;
     }
+    windowPoints = (windowRate - startFwd.spotBid) / pair.pipSize;
   }
 
-  const windowPoints = (windowRate - startFwd.spot) / pair.pipSize;
-  const carryCostPips = Math.abs(windowRate - endFwd.outrightForward) / pair.pipSize;
-  const carryCostCash = Math.abs(windowRate - endFwd.outrightForward) * notional;
+  const benchmarkEndRate = isBuyLHS ? endFwd.forwardAsk : endFwd.forwardBid;
+  const carryCostPips = Math.abs(windowRate - benchmarkEndRate) / pair.pipSize;
+  const carryCostCash = Math.abs(windowRate - benchmarkEndRate) * notional;
   const totalSettlementCash = notional * windowRate;
 
-  // 2. Generate intermediate pillar points across the window (weekly schedule)
+  // 2. Generate intermediate pillar points across the window
   const windowSchedule = [];
   const startDate = new Date(windowStartStr);
   const endDate = new Date(windowEndStr);
-  const stepDays = Math.max(1, Math.floor((endDate - startDate) / (1000 * 86400 * 5))); // 5 sample points
+  const stepDays = Math.max(1, Math.floor((endDate - startDate) / (1000 * 86400 * 5)));
 
   let current = new Date(startDate);
   while (current <= endDate) {
     const cStr = formatDateISO(current);
-    const subFwd = await calculateBrokenDateForward(pairKey, tradeDateStr, cStr, { applyXccy });
+    const subFwd = await calculateBrokenDateForward(pairKey, tradeDateStr, cStr, { applyXccy, spot: customSpot, spreadPips: options.spreadPips });
     windowSchedule.push({
       date: cStr,
       days: subFwd.days,
+      forwardBid: subFwd.forwardBid,
+      forwardAsk: subFwd.forwardAsk,
       outrightForward: subFwd.outrightForward,
       swapPoints: subFwd.swapPoints,
-      baseRate: subFwd.baseRate,
-      quoteRate: subFwd.quoteRate
+      pointsBid: subFwd.pointsBid,
+      pointsAsk: subFwd.pointsAsk
     });
     current.setUTCDate(current.getUTCDate() + stepDays);
   }
@@ -380,21 +411,27 @@ async function calculateWindowForward(pairKey, tradeDateStr, windowStartStr, win
     windowSchedule.push({
       date: windowEndStr,
       days: endFwd.days,
+      forwardBid: endFwd.forwardBid,
+      forwardAsk: endFwd.forwardAsk,
       outrightForward: endFwd.outrightForward,
       swapPoints: endFwd.swapPoints,
-      baseRate: endFwd.baseRate,
-      quoteRate: endFwd.quoteRate
+      pointsBid: endFwd.pointsBid,
+      pointsAsk: endFwd.pointsAsk
     });
   }
 
   return {
     pair: pair.symbol,
     pairName: pair.name,
+    lhs: pair.lhs,
+    rhs: pair.rhs,
     tradeDate: tradeDateStr,
     spotDate: startFwd.spotDate,
     spot: startFwd.spot,
-    direction,
-    directionLabel: direction === 'BUY_BASE' ? `Client BUYS ${pair.base} / SELLS ${pair.quote}` : `Client SELLS ${pair.base} / BUYS ${pair.quote}`,
+    spotBid: startFwd.spotBid,
+    spotAsk: startFwd.spotAsk,
+    direction: isBuyLHS ? 'BUY_LHS' : 'SELL_LHS',
+    directionLabel: isBuyLHS ? `Client BUYS ${pair.lhs} (LHS) / SELLS ${pair.rhs} (RHS)` : `Client SELLS ${pair.lhs} (LHS) / BUYS ${pair.rhs} (RHS)`,
     windowStart: windowStartStr,
     windowEnd: windowEndStr,
     windowDurationDays: endFwd.days - startFwd.days,
@@ -406,25 +443,33 @@ async function calculateWindowForward(pairKey, tradeDateStr, windowStartStr, win
     startDatePricing: {
       date: windowStartStr,
       days: startFwd.days,
-      outright: startFwd.outrightForward,
-      points: startFwd.swapPoints
+      bid: startFwd.forwardBid,
+      ask: startFwd.forwardAsk,
+      mid: startFwd.outrightForward,
+      pointsBid: startFwd.pointsBid,
+      pointsAsk: startFwd.pointsAsk,
+      pointsMid: startFwd.swapPoints
     },
     endDatePricing: {
       date: windowEndStr,
       days: endFwd.days,
-      outright: endFwd.outrightForward,
-      points: endFwd.swapPoints
+      bid: endFwd.forwardBid,
+      ask: endFwd.forwardAsk,
+      mid: endFwd.outrightForward,
+      pointsBid: endFwd.pointsBid,
+      pointsAsk: endFwd.pointsAsk,
+      pointsMid: endFwd.swapPoints
     },
     windowCost: {
       pips: parseFloat(carryCostPips.toFixed(pair.pipDecimals)),
       cashflow: parseFloat(carryCostCash.toFixed(2)),
-      currency: pair.quote
+      currency: pair.rhs
     },
     notional: {
-      baseAmount: notional,
-      baseCurrency: pair.base,
-      settlementCashflow: parseFloat(totalSettlementCash.toFixed(2)),
-      quoteCurrency: pair.quote
+      lhsAmount: notional,
+      lhsCurrency: pair.lhs,
+      rhsSettlementCashflow: parseFloat(totalSettlementCash.toFixed(2)),
+      rhsCurrency: pair.rhs
     },
     windowSchedule
   };
