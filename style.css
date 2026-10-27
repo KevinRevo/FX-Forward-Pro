@@ -4,6 +4,58 @@
    semantic styling, logical CSS properties)
    ========================================================================== */
 
+/* LHS / RHS Badges and Dual Form Rows */
+.lhs-rhs-badge {
+  background-color: #1a2a38;
+  color: var(--bbg-cyan);
+  border: 1px solid var(--bbg-cyan-dim);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.5px;
+}
+
+.form-row-dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.spot-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spot-input-wrap input {
+  flex: 1;
+}
+
+.bbg-action-btn-mini {
+  background-color: #1a2734;
+  color: var(--bbg-cyan);
+  border: 1px solid #2b3d50;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.15s;
+}
+
+.bbg-action-btn-mini:hover {
+  background-color: var(--bbg-cyan);
+  color: var(--bbg-black);
+}
+
+.highlight-row {
+  background-color: rgba(255, 153, 0, 0.08);
+  border-left: 2px solid var(--bbg-amber);
+  padding-left: 6px !important;
+}
+
 /* Invert Direction Buttons */
 .bbg-invert-btn {
   background-color: #213242;
@@ -936,4 +988,304 @@ body {
   .fxfa-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ==========================================================================
+   Two-Way Interbank Dealing Board (Bid & Ask Display)
+   ========================================================================== */
+.pricing-meta-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.meta-pill {
+  background-color: #121922;
+  border: 1px solid var(--bbg-border-bright);
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 2px;
+  color: var(--bbg-text-dim);
+}
+
+.two-way-pricing-board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.two-way-card {
+  background-color: var(--bbg-black);
+  border: 2px solid var(--bbg-border);
+  border-radius: 3px;
+  padding: 12px 14px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.two-way-card.bid-card {
+  border-left: 4px solid var(--bbg-green);
+}
+
+.two-way-card.ask-card {
+  border-left: 4px solid var(--bbg-amber);
+}
+
+.two-way-card.deal-active {
+  background-color: #111a24;
+  border-color: var(--bbg-cyan);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
+}
+
+.two-way-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 10px;
+}
+
+.badge-role {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.bid-role {
+  color: var(--bbg-green);
+}
+
+.ask-role {
+  color: var(--bbg-amber);
+}
+
+.badge-type {
+  background-color: #1c2734;
+  color: #8ba2b8;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.rate-display {
+  margin: 6px 0;
+}
+
+.two-way-rate {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  font-family: var(--font-mono);
+}
+
+.green-rate {
+  color: var(--bbg-green);
+}
+
+.amber-rate {
+  color: var(--bbg-amber);
+}
+
+.two-way-sub {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--bbg-text-dim);
+  border-top: 1px solid #1a2532;
+  padding-top: 6px;
+  margin-top: 4px;
+}
+
+/* Mid & Spread Strip */
+.mid-spread-strip {
+  display: flex;
+  justify-content: space-between;
+  background-color: #0d141d;
+  border: 1px solid var(--bbg-border);
+  padding: 8px 12px;
+  border-radius: 2px;
+  margin-bottom: 12px;
+  font-size: 11px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.strip-item {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.strip-lbl {
+  color: var(--bbg-text-dim);
+  font-size: 10px;
+}
+
+.strip-val {
+  color: var(--bbg-white);
+}
+
+/* Client Execution Banner */
+.client-execution-banner {
+  background: linear-gradient(90deg, #121c27 0%, #0e1620 100%);
+  border: 1px solid var(--bbg-amber);
+  border-radius: 3px;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.exec-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exec-pill {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--bbg-amber);
+  letter-spacing: 0.8px;
+}
+
+.exec-rate-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.exec-rate {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--bbg-amber-bright);
+}
+
+.exec-desc {
+  font-size: 11px;
+  color: var(--bbg-text-dim);
+}
+
+.exec-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.exec-deal-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bbg-cyan);
+}
+
+.exec-cashflow-box {
+  font-size: 12px;
+}
+
+.cashflow-lbl {
+  color: var(--bbg-text-dim);
+  margin-right: 4px;
+}
+
+/* Window Boundaries Grid (Start vs End) */
+.window-boundary-container {
+  background-color: #0f161f;
+  border: 1px solid var(--bbg-border);
+  padding: 12px;
+  border-radius: 3px;
+  margin-bottom: 14px;
+}
+
+.boundary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--bbg-amber);
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.boundary-sub {
+  font-size: 10px;
+  color: var(--bbg-text-dim);
+  font-weight: 400;
+}
+
+.boundary-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.boundary-card {
+  background-color: var(--bbg-black);
+  border: 1px solid var(--bbg-border-bright);
+  padding: 10px;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+
+.boundary-card.pillar-active {
+  border-color: var(--bbg-amber);
+  background-color: #141c26;
+  box-shadow: 0 0 8px rgba(255, 179, 0, 0.2);
+}
+
+.boundary-card-top {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #1e2b38;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  font-size: 10px;
+}
+
+.boundary-name {
+  font-weight: 700;
+  color: var(--bbg-white);
+}
+
+.boundary-date {
+  color: var(--bbg-cyan);
+}
+
+.boundary-rate-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 11px;
+  color: var(--bbg-text-dim);
+}
+
+.boundary-summary-box {
+  background-color: #0b1118;
+  border: 1px solid #1a2532;
+  padding: 8px 10px;
+  border-radius: 2px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-line {
+  display: flex;
+  justify-content: space-between;
+}
+
+.green-text {
+  color: var(--bbg-green);
+}
+
+.amber-text {
+  color: var(--bbg-amber);
 }
