@@ -15,12 +15,12 @@
     <header class="terminal-header">
       <div class="terminal-brand">
         <span class="bbg-logo">FX FORWARD PRO</span>
-        <span class="terminal-badge">INTERBANK DUAL-CURVE CIP</span>
+        <span class="terminal-badge">INTERBANK CIP &amp; WINDOW PRICER</span>
       </div>
 
       <div class="command-line-box">
         <span class="prompt">TRM&gt;</span>
-        <input type="text" id="command-input" placeholder="Enter command (e.g. EURUSD, USDEUR, COMP, PRICER, HELP)..." autocomplete="off" spellcheck="false">
+        <input type="text" id="command-input" placeholder="Enter pair or command (e.g. EURGBP, EURUSD, COMP, PRICER, HELP)..." autocomplete="off" spellcheck="false">
         <button id="go-btn" class="bbg-go-btn" title="Execute command">&lt;RUN&gt;</button>
       </div>
 
@@ -29,36 +29,38 @@
 
     <!-- Subheader & Quick Scenarios -->
     <div class="scenario-bar">
-      <div class="preset-label">MARKET SCENARIOS:</div>
+      <div class="preset-label">BENCHMARK SCENARIOS:</div>
       <div class="presets-container" id="presets-container">
         <!-- populated dynamically -->
       </div>
     </div>
 
-    <!-- Active Security Banner with Quick Direction Switch -->
+    <!-- Active Security Banner with LHS / RHS breakdown -->
     <div class="security-banner">
       <div class="sec-left">
-        <span class="sec-pair" id="active-pair-name">EUR / USD</span>
-        <button id="banner-invert-btn" class="bbg-invert-btn" title="Invert Quoting Direction (e.g. EUR:USD &lt;--&gt; USD:EUR)">⇄ INVERT (USD/EUR)</button>
+        <span class="sec-pair" id="active-pair-name">EUR:GBP</span>
+        <span class="lhs-rhs-badge" id="banner-lhs-rhs-badge">LHS: EUR | RHS: GBP</span>
         <span class="sec-spot-label">SPOT:</span>
-        <span class="sec-spot-bid" id="banner-spot-bid">1.0820</span>
+        <span class="sec-spot-bid" id="banner-spot-bid">0.8565</span>
         <span class="sec-spot-slash">/</span>
-        <span class="sec-spot-ask" id="banner-spot-ask">1.0825</span>
-        <span class="sec-spot-mid" id="banner-spot-mid">(1.08225)</span>
-        <span class="sec-change positive" id="banner-spot-change">+0.0012 (+0.11%)</span>
+        <span class="sec-spot-ask" id="banner-spot-ask">0.8567</span>
+        <span class="sec-spot-mid" id="banner-spot-mid">(0.85660)</span>
       </div>
       <div class="sec-right">
-        <span class="sec-tag">BASE: <span id="banner-base-rate" class="rate-val">€STR 3.25%</span> (ACT/360)</span>
+        <span class="sec-tag">LHS (<span id="banner-lhs-code">EUR</span>): <span id="banner-base-rate" class="rate-val">€STR 2.75%</span> (ACT/360)</span>
         <span class="sec-separator">|</span>
-        <span class="sec-tag">QUOTE: <span id="banner-quote-rate" class="rate-val">SOFR 4.85%</span> (ACT/360)</span>
+        <span class="sec-tag">RHS (<span id="banner-rhs-code">GBP</span>): <span id="banner-quote-rate" class="rate-val">SONIA 1.37%</span> (ACT/365)</span>
         <span class="sec-separator">|</span>
-        <span class="sec-tag">XCCY BASIS: <span id="banner-xccy-basis" class="rate-val">-18.0 bps</span></span>
+        <span class="sec-tag">XCCY BASIS: <span id="banner-xccy-basis" class="rate-val">0.0 bps</span></span>
       </div>
     </div>
 
     <!-- Navigation Function Tabs -->
     <nav class="function-tabs" role="tablist">
-      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="frd">
+      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="pricer">
+        <span class="fn-code">PRICER</span> Fixed &amp; Window Forward
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="frd">
         <span class="fn-code">FRD</span> Tenor Forward Ladder
       </button>
       <button class="tab-btn" role="tab" aria-selected="false" data-tab="comp">
@@ -67,30 +69,209 @@
       <button class="tab-btn" role="tab" aria-selected="false" data-tab="hist">
         <span class="fn-code">HIST</span> Tenor Time Series
       </button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="pricer">
-        <span class="fn-code">PRICER</span> Fixed &amp; Window Forward
-      </button>
     </nav>
 
     <!-- Main Content Area -->
     <main class="terminal-main">
-      <!-- 1. FRD SCREEN (Forward Rate Display Ladder) -->
-      <section id="tab-frd" class="tab-pane active" role="tabpanel">
+      <!-- 1. PRICER SCREEN (Fixed Forward & Window Forward Calculator) -->
+      <section id="tab-pricer" class="tab-pane active" role="tabpanel">
+        <div class="fxfa-grid">
+          <!-- Left: Parameters Card -->
+          <div class="fxfa-card input-card">
+            <div class="card-heading-box">
+              <h2 class="card-heading">CONTRACT SPECIFICATIONS</h2>
+              <!-- Contract Mode Toggle (Window Forward vs Fixed Forward) -->
+              <div class="mode-toggle-group">
+                <button type="button" class="mode-btn active" id="mode-window-btn" data-mode="window">WINDOW FORWARD (FLEXIBLE)</button>
+                <button type="button" class="mode-btn" id="mode-fixed-btn" data-mode="fixed">FIXED FORWARD (SINGLE DATE)</button>
+              </div>
+            </div>
+
+            <!-- Currency Pair -->
+            <div class="form-row">
+              <label for="fxfa-pair-select">Currency Pair (LHS : RHS):</label>
+              <select id="fxfa-pair-select" class="bbg-select"></select>
+            </div>
+
+            <!-- Trade Date & Spot Rate (with custom override) -->
+            <div class="form-row-dual">
+              <div class="form-row">
+                <label for="fxfa-asof-date">Trade Date (As-Of):</label>
+                <input type="date" id="fxfa-asof-date" class="bbg-input" value="2026-08-25">
+              </div>
+              <div class="form-row">
+                <label for="fxfa-spot-input">Spot Rate (Exact / Override):</label>
+                <div class="spot-input-wrap">
+                  <input type="number" id="fxfa-spot-input" class="bbg-input" step="0.000001" value="0.856600">
+                  <button type="button" id="fxfa-reset-spot-btn" class="bbg-action-btn-mini" title="Fetch default market spot for this date">Auto</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Window Forward Dates -->
+            <div class="window-dates-row" id="row-window-dates">
+              <div class="form-row">
+                <label for="fxfa-window-start">Window Start (Open Date):</label>
+                <input type="date" id="fxfa-window-start" class="bbg-input" value="2026-11-02">
+              </div>
+              <div class="form-row">
+                <label for="fxfa-window-end">Window End (Expiry Date):</label>
+                <input type="date" id="fxfa-window-end" class="bbg-input" value="2027-02-09">
+              </div>
+            </div>
+
+            <!-- Single Date (Fixed Forward Mode) -->
+            <div class="form-row" id="row-fixed-date" style="display: none;">
+              <label for="fxfa-settle-date">Fixed Settlement Date:</label>
+              <input type="date" id="fxfa-settle-date" class="bbg-input" value="2026-11-02">
+            </div>
+
+            <!-- Trading Direction (LHS / RHS) -->
+            <div class="form-row" id="row-direction">
+              <label for="fxfa-direction">Client Dealing Direction:</label>
+              <select id="fxfa-direction" class="bbg-select">
+                <option value="BUY_LHS" selected>Client BUYS LHS / SELLS RHS (Buy EUR, Pay GBP)</option>
+                <option value="SELL_LHS">Client SELLS LHS / BUYS RHS (Sell EUR, Receive GBP)</option>
+              </select>
+            </div>
+
+            <!-- Notional -->
+            <div class="form-row">
+              <label for="fxfa-notional">LHS Notional Amount:</label>
+              <input type="number" id="fxfa-notional" class="bbg-input" value="1000000" step="50000">
+            </div>
+
+            <div class="form-row toggle-row">
+              <label class="switch-label">
+                <input type="checkbox" id="fxfa-xccy-toggle" checked>
+                <span class="switch-custom"></span>
+                <span class="switch-text">Include Cross-Currency Basis (XCCY)</span>
+              </label>
+            </div>
+
+            <button id="fxfa-calculate-btn" class="bbg-action-btn primary large">&lt;CALCULATE INTERBANK PRICING&gt;</button>
+          </div>
+
+          <!-- Right: Pricing Results & Parity Card -->
+          <div class="fxfa-card results-card">
+            <h2 class="card-heading" id="pricer-result-heading">WINDOW FORWARD (FLEXIBLE DELIVERY) PRICING</h2>
+            
+            <div class="metrics-grid" id="fxfa-metrics">
+              <div class="metric-box">
+                <div class="metric-label" id="lbl-metric-days">WINDOW DURATION</div>
+                <div class="metric-value" id="res-days">99 days</div>
+                <div class="metric-sub" id="res-spot-date">Spot: 2026-08-27</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">SPOT RATE</div>
+                <div class="metric-value highlight" id="res-spot">0.856600</div>
+                <div class="metric-sub" id="res-spot-sub">Bid: 0.8565 / Ask: 0.8567</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label" id="lbl-metric-pts">WINDOW SWAP POINTS</div>
+                <div class="metric-value" id="res-points">-21.6 pips</div>
+                <div class="metric-sub" id="res-ann-prm">Discount</div>
+              </div>
+              <div class="metric-box primary-result">
+                <div class="metric-label" id="lbl-metric-rate">GUARANTEED WINDOW RATE</div>
+                <div class="metric-value amber-bold" id="res-outright">0.854437</div>
+                <div class="metric-sub" id="res-sub-desc">Executable Anytime in Window</div>
+              </div>
+            </div>
+
+            <!-- Breakdown for Window Forward -->
+            <div class="decomposition-box" id="window-decomposition">
+              <div class="decomp-row">
+                <span>Curve Term Structure:</span>
+                <span id="win-curve-structure" class="rate-val">DISCOUNT (Downward Sloping)</span>
+              </div>
+              <div class="decomp-row">
+                <span>Window Start Rate (02/11/26):</span>
+                <span id="win-start-rate" class="rate-val">Bid: 0.854321 | Ask: 0.854437 (-22.2 pips)</span>
+              </div>
+              <div class="decomp-row">
+                <span>Window End Rate (09/02/27):</span>
+                <span id="win-end-rate" class="rate-val">Bid: 0.851071 | Ask: 0.851206 (-54.6 pips)</span>
+              </div>
+              <div class="decomp-row highlight-row">
+                <span>Conservative Pricing Pillar:</span>
+                <span id="win-worst-date" class="rate-val highlight">Window Start (02/11/26 - Highest Ask)</span>
+              </div>
+              <div class="decomp-row">
+                <span>Flexibility Carry Cost vs End Date:</span>
+                <span id="win-carry-cost" class="rate-val">32.4 pips (£3,241.00 GBP)</span>
+              </div>
+              <div class="decomp-row total">
+                <span>Guaranteed Settlement Cashflow:</span>
+                <span id="win-cashflow" class="rate-val highlight">£854,437.00 GBP for €1,000,000.00 EUR</span>
+              </div>
+            </div>
+
+            <!-- Breakdown for Fixed Forward -->
+            <div class="decomposition-box" id="fixed-decomposition" style="display: none;">
+              <div class="decomp-row">
+                <span>Interbank Bid Forward:</span>
+                <span id="fix-bid-fwd" class="rate-val">0.854321</span>
+              </div>
+              <div class="decomp-row">
+                <span>Interbank Ask Forward:</span>
+                <span id="fix-ask-fwd" class="rate-val">0.854437</span>
+              </div>
+              <div class="decomp-row">
+                <span>Mid Swap Points:</span>
+                <span id="fix-mid-pts" class="rate-val">-22.2 pips</span>
+              </div>
+              <div class="decomp-row">
+                <span>LHS Base Zero Rate (ACT/360):</span>
+                <span id="res-base-rate" class="rate-val">2.75%</span>
+              </div>
+              <div class="decomp-row">
+                <span>RHS Terms Zero Rate (ACT/365):</span>
+                <span id="res-quote-rate" class="rate-val">1.37%</span>
+              </div>
+              <div class="decomp-row total">
+                <span>Settlement Cashflow:</span>
+                <span id="res-cashflow" class="rate-val highlight">£854,379.00 GBP</span>
+              </div>
+            </div>
+
+            <!-- Window Delivery Rate Corridor Table -->
+            <div class="window-schedule-box" id="window-schedule-box" style="margin-top: 14px;">
+              <div class="chart-title" style="margin-bottom: 6px;">WINDOW CORRIDOR INTERBANK QUOTES:</div>
+              <div class="table-container" style="max-height: 180px;">
+                <table class="bbg-table">
+                  <thead>
+                    <tr>
+                      <th>DATE</th>
+                      <th class="text-right">DAYS</th>
+                      <th class="text-right">SWAP PTS</th>
+                      <th class="text-right">INTERBANK BID</th>
+                      <th class="text-right">INTERBANK ASK</th>
+                    </tr>
+                  </thead>
+                  <tbody id="window-schedule-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. FRD SCREEN (Forward Rate Display Ladder) -->
+      <section id="tab-frd" class="tab-pane" role="tabpanel">
         <div class="pane-controls">
           <div class="control-group">
             <label for="frd-pair-select">PAIR:</label>
             <select id="frd-pair-select" class="bbg-select"></select>
-            <button id="frd-invert-btn" class="bbg-invert-btn-mini" title="Reverse Pair Direction">⇄ Invert</button>
           </div>
 
           <div class="control-group">
             <label for="frd-date-input">AS OF (TRADE DATE):</label>
-            <input type="date" id="frd-date-input" class="bbg-input" value="2023-10-15">
+            <input type="date" id="frd-date-input" class="bbg-input" value="2026-08-25">
             <div class="quick-dates">
-              <button class="quick-date-btn" data-date="2023-10-15">Oct 2023 (Peak)</button>
-              <button class="quick-date-btn" data-date="2022-06-15">Jun 2022 (Hikes)</button>
-              <button class="quick-date-btn" data-date="2020-04-15">Apr 2020 (COVID)</button>
-              <button class="quick-date-btn" data-date="2019-10-15">Oct 2019</button>
+              <button class="quick-date-btn" data-date="2026-08-25">25 Aug 2026</button>
+              <button class="quick-date-btn" data-date="2023-10-15">Oct 2023</button>
+              <button class="quick-date-btn" data-date="2022-06-15">Jun 2022</button>
               <button class="quick-date-btn" data-date="today">Today</button>
             </div>
           </div>
@@ -109,7 +290,6 @@
           </div>
         </div>
 
-        <!-- Responsive Table Container -->
         <div class="table-container" tabindex="0" role="region" aria-label="Forward Rate Display Ladder">
           <table class="bbg-table" id="frd-table">
             <thead>
@@ -135,19 +315,14 @@
             </tbody>
           </table>
         </div>
-
-        <div class="terminal-footer-notes">
-          <span>* Conventions: Standard CIP formula with money market simple interest for ≤1Y and annual compounding for &gt;1Y. Day counts adhere to ISDA standard calendar conventions. Click any row to price in the Fixed/Window Forward Pricer.</span>
-        </div>
       </section>
 
-      <!-- 2. COMP SCREEN (Historical Curve Comparison) -->
+      <!-- 3. COMP SCREEN (Historical Curve Comparison) -->
       <section id="tab-comp" class="tab-pane" role="tabpanel">
         <div class="pane-controls">
           <div class="control-group">
             <label for="comp-pair-select">PAIR:</label>
             <select id="comp-pair-select" class="bbg-select"></select>
-            <button id="comp-invert-btn" class="bbg-invert-btn-mini" title="Reverse Pair Direction">⇄ Invert</button>
           </div>
 
           <div class="control-group">
@@ -165,7 +340,6 @@
           </div>
         </div>
 
-        <!-- Curve Visual Comparison Chart -->
         <div class="chart-card">
           <div class="chart-header">
             <div class="chart-title">TERM STRUCTURE COMPARISON: FORWARD POINTS (PIPS)</div>
@@ -174,12 +348,9 @@
               <span class="legend-item"><span class="legend-color color-date2"></span> <span id="comp-legend-date2">Date 2 (2024-09-15)</span></span>
             </div>
           </div>
-          <div class="chart-svg-container" id="comp-curve-chart">
-            <!-- SVG rendered by JS -->
-          </div>
+          <div class="chart-svg-container" id="comp-curve-chart"></div>
         </div>
 
-        <!-- Side-by-Side Comparison Table -->
         <div class="table-container" tabindex="0" role="region" aria-label="Forward Curve Comparison Table">
           <table class="bbg-table" id="comp-table">
             <thead>
@@ -204,13 +375,12 @@
         </div>
       </section>
 
-      <!-- 3. HIST SCREEN (Tenor Time Series) -->
+      <!-- 4. HIST SCREEN (Tenor Time Series) -->
       <section id="tab-hist" class="tab-pane" role="tabpanel">
         <div class="pane-controls">
           <div class="control-group">
             <label for="hist-pair-select">PAIR:</label>
             <select id="hist-pair-select" class="bbg-select"></select>
-            <button id="hist-invert-btn" class="bbg-invert-btn-mini" title="Reverse Pair Direction">⇄ Invert</button>
           </div>
 
           <div class="control-group">
@@ -239,10 +409,9 @@
           </div>
         </div>
 
-        <!-- Historical Time Series Chart -->
         <div class="chart-card">
           <div class="chart-header">
-            <div class="chart-title" id="hist-chart-title">EURUSD 3M FORWARD VS SPOT OVER TIME</div>
+            <div class="chart-title" id="hist-chart-title">EUR:USD 3M FORWARD VS SPOT OVER TIME</div>
             <div class="chart-legend">
               <span class="legend-item"><span class="legend-color color-spot"></span> Spot Rate</span>
               <span class="legend-item"><span class="legend-color color-fwd"></span> Forward Outright Rate</span>
@@ -251,178 +420,11 @@
           <div class="chart-svg-container" id="hist-rate-chart"></div>
         </div>
 
-        <!-- Historical Points Subchart -->
         <div class="chart-card points-card">
           <div class="chart-header">
             <div class="chart-title">SWAP POINTS (PIPS) EVOLUTION</div>
           </div>
           <div class="chart-svg-container" id="hist-points-chart"></div>
-        </div>
-      </section>
-
-      <!-- 4. PRICER SCREEN (Fixed & Window Forward Calculator) -->
-      <section id="tab-pricer" class="tab-pane" role="tabpanel">
-        <div class="fxfa-grid">
-          <!-- Left: Parameters Card -->
-          <div class="fxfa-card input-card">
-            <div class="card-heading-box">
-              <h2 class="card-heading">FORWARD CONTRACT PRICING ENGINE</h2>
-              <!-- Contract Mode Toggle (Fixed vs Window) -->
-              <div class="mode-toggle-group">
-                <button type="button" class="mode-btn active" id="mode-fixed-btn" data-mode="fixed">FIXED FORWARD</button>
-                <button type="button" class="mode-btn" id="mode-window-btn" data-mode="window">WINDOW FORWARD (FLEXIBLE)</button>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <label for="fxfa-pair-select">Currency Pair:</label>
-              <div class="pair-input-row">
-                <select id="fxfa-pair-select" class="bbg-select"></select>
-                <button id="fxfa-invert-btn" class="bbg-invert-btn-mini" title="Reverse Pair Direction">⇄ Invert</button>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <label for="fxfa-asof-date">As-Of (Trade Date):</label>
-              <input type="date" id="fxfa-asof-date" class="bbg-input" value="2023-10-15">
-            </div>
-
-            <!-- Single Date (Fixed Forward Mode) -->
-            <div class="form-row" id="row-fixed-date">
-              <label for="fxfa-settle-date">Fixed Settlement Date:</label>
-              <input type="date" id="fxfa-settle-date" class="bbg-input" value="2024-02-28">
-            </div>
-
-            <!-- Dual Dates (Window Forward Mode) -->
-            <div class="window-dates-row" id="row-window-dates" style="display: none;">
-              <div class="form-row">
-                <label for="fxfa-window-start">Window Start (Open Date):</label>
-                <input type="date" id="fxfa-window-start" class="bbg-input" value="2023-11-15">
-              </div>
-              <div class="form-row">
-                <label for="fxfa-window-end">Window End (Expiry Date):</label>
-                <input type="date" id="fxfa-window-end" class="bbg-input" value="2024-01-15">
-              </div>
-            </div>
-
-            <!-- Direction for Window Forward -->
-            <div class="form-row" id="row-direction" style="display: none;">
-              <label for="fxfa-direction">Client Trading Direction:</label>
-              <select id="fxfa-direction" class="bbg-select">
-                <option value="BUY_BASE" selected>Client BUYS Base / SELLS Quote</option>
-                <option value="SELL_BASE">Client SELLS Base / BUYS Quote</option>
-              </select>
-            </div>
-
-            <div class="form-row">
-              <label for="fxfa-notional">Base Notional Amount:</label>
-              <input type="number" id="fxfa-notional" class="bbg-input" value="1000000" step="50000">
-            </div>
-
-            <div class="form-row toggle-row">
-              <label class="switch-label">
-                <input type="checkbox" id="fxfa-xccy-toggle" checked>
-                <span class="switch-custom"></span>
-                <span class="switch-text">Include Cross-Currency Basis (XCCY)</span>
-              </label>
-            </div>
-
-            <button id="fxfa-calculate-btn" class="bbg-action-btn primary large">&lt;CALCULATE INTERBANK PRICING&gt;</button>
-          </div>
-
-          <!-- Right: Pricing Results & Parity Card -->
-          <div class="fxfa-card results-card">
-            <h2 class="card-heading" id="pricer-result-heading">FIXED FORWARD PRICING &amp; PARITY</h2>
-            
-            <div class="metrics-grid" id="fxfa-metrics">
-              <div class="metric-box">
-                <div class="metric-label" id="lbl-metric-days">DAYS TO SETTLE</div>
-                <div class="metric-value" id="res-days">134</div>
-                <div class="metric-sub" id="res-spot-date">Spot: 2023-10-17</div>
-              </div>
-              <div class="metric-box">
-                <div class="metric-label">SPOT RATE</div>
-                <div class="metric-value highlight" id="res-spot">1.05216</div>
-                <div class="metric-sub">Mid Market</div>
-              </div>
-              <div class="metric-box">
-                <div class="metric-label" id="lbl-metric-pts">SWAP POINTS</div>
-                <div class="metric-value positive" id="res-points">+47.2 pips</div>
-                <div class="metric-sub" id="res-ann-prm">+1.20% Ann.</div>
-              </div>
-              <div class="metric-box primary-result">
-                <div class="metric-label" id="lbl-metric-rate">OUTRIGHT FORWARD RATE</div>
-                <div class="metric-value amber-bold" id="res-outright">1.05688</div>
-                <div class="metric-sub" id="res-sub-desc">Guaranteed Contract Rate</div>
-              </div>
-            </div>
-
-            <!-- Breakdown for Fixed Forward -->
-            <div class="decomposition-box" id="fixed-decomposition">
-              <div class="decomp-row">
-                <span>Base Zero Rate:</span>
-                <span id="res-base-rate" class="rate-val">3.96%</span>
-              </div>
-              <div class="decomp-row">
-                <span>Quote Zero Rate:</span>
-                <span id="res-quote-rate" class="rate-val">5.44%</span>
-              </div>
-              <div class="decomp-row">
-                <span>Cross-Currency Basis Spread:</span>
-                <span id="res-xccy-basis" class="rate-val">-24.1 bps</span>
-              </div>
-              <div class="decomp-row total">
-                <span>Settlement Cashflow:</span>
-                <span id="res-cashflow" class="rate-val highlight">$1,056,880.00 USD</span>
-              </div>
-            </div>
-
-            <!-- Breakdown for Window Forward -->
-            <div class="decomposition-box" id="window-decomposition" style="display: none;">
-              <div class="decomp-row">
-                <span>Curve Structure:</span>
-                <span id="win-curve-structure" class="rate-val">PREMIUM (Upward Sloping)</span>
-              </div>
-              <div class="decomp-row">
-                <span>Rate at Window Start:</span>
-                <span id="win-start-rate" class="rate-val">1.05316 (+10.0 pips)</span>
-              </div>
-              <div class="decomp-row">
-                <span>Rate at Window End:</span>
-                <span id="win-end-rate" class="rate-val">1.05536 (+32.0 pips)</span>
-              </div>
-              <div class="decomp-row">
-                <span>Conservative Pricing Pillar:</span>
-                <span id="win-worst-date" class="rate-val highlight">Window End (2024-01-15)</span>
-              </div>
-              <div class="decomp-row">
-                <span>Window Flexibility Carry Cost:</span>
-                <span id="win-carry-cost" class="rate-val">0.0 pips ($0.00)</span>
-              </div>
-              <div class="decomp-row total">
-                <span>Guaranteed Settlement Cashflow:</span>
-                <span id="win-cashflow" class="rate-val highlight">$1,055,360.00 USD</span>
-              </div>
-            </div>
-
-            <!-- Window Delivery Corridor Table -->
-            <div class="window-schedule-box" id="window-schedule-box" style="display: none; margin-top: 16px;">
-              <div class="chart-title" style="margin-bottom: 8px;">WINDOW DELIVERY RATE SCHEDULE:</div>
-              <div class="table-container" style="max-height: 200px;">
-                <table class="bbg-table">
-                  <thead>
-                    <tr>
-                      <th>DATE</th>
-                      <th class="text-right">DAYS</th>
-                      <th class="text-right">POINTS (PIPS)</th>
-                      <th class="text-right">OUTRIGHT RATE</th>
-                    </tr>
-                  </thead>
-                  <tbody id="window-schedule-tbody"></tbody>
-                </table>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
     </main>
@@ -431,16 +433,16 @@
     <footer class="terminal-status-bar">
       <div class="status-left">
         <span class="status-indicator online"></span>
-        <span class="status-text">INTERBANK CIP &amp; WINDOW PRICING ENGINE: ACTIVE</span>
+        <span class="status-text">INTERBANK DUAL-CURVE CIP &amp; WINDOW PRICER ACTIVE</span>
         <span class="status-sep">|</span>
         <span class="status-key">F1: HELP</span>
-        <span class="status-key">F2: LADDER</span>
-        <span class="status-key">F3: COMPARE</span>
-        <span class="status-key">F4: HISTORY</span>
-        <span class="status-key">F5: PRICER</span>
+        <span class="status-key">F2: PRICER</span>
+        <span class="status-key">F3: LADDER</span>
+        <span class="status-key">F4: COMPARE</span>
+        <span class="status-key">F5: HISTORY</span>
       </div>
       <div class="status-right">
-        <span>FX FORWARD PRO v3.0 | DUAL CURVE OIS DISCOUNTING</span>
+        <span>FX FORWARD PRO v3.2 | INSTITUTIONAL INTERBANK STANDARDS</span>
       </div>
     </footer>
   </div>
