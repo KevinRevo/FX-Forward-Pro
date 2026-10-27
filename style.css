@@ -1321,3 +1321,50 @@ body {
 .amber-text {
   color: var(--bbg-amber);
 }
+
+/* Spot Rate Breakdown & Side Indicators */
+.spot-side-indicator {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--bbg-cyan);
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+
+.spot-input-wrap {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.spot-input-wrap .bbg-input {
+  flex: 1;
+}
+
+.spot-live-breakdown {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--bbg-text-dim);
+  margin-top: 5px;
+  padding: 4px 8px;
+  background-color: #0b1118;
+  border: 1px solid #1a2532;
+  border-radius: 2px;
+}
+
+.spot-bd-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spot-bd-item.active-side {
+  color: #fff;
+  font-weight: 700;
+}
+
+.spot-bd-sep {
+  color: #2b3d50;
+}
