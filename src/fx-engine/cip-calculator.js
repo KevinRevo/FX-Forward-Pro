@@ -356,32 +356,33 @@ async function calculateWindowForward(pairKey, tradeDateStr, windowStartStr, win
   let worstCaseDays;
   let windowPoints;
 
-  const isBuyLHS = (direction === 'BUY_LHS' || direction === 'BUY_BASE');
+  // Nomenclature:
+  // LHS (Left-Hand Side / BID) = Client SELLS base currency / BUYS quote currency
+  // RHS (Right-Hand Side / ASK) = Client BUYS base currency / SELLS quote currency
+  const isLHS = (direction === 'LHS' || direction === 'SELL_LHS' || direction === 'SELL_BASE' || direction === 'SELL');
 
   const windowBid = Math.min(startFwd.forwardBid, endFwd.forwardBid);
   const windowAsk = Math.max(startFwd.forwardAsk, endFwd.forwardAsk);
   const windowPointsBid = (windowBid - startFwd.spotBid) / pair.pipSize;
   const windowPointsAsk = (windowAsk - startFwd.spotAsk) / pair.pipSize;
 
-  if (isBuyLHS) {
-    // Client BUYS LHS / SELLS RHS (e.g. Buys EUR, Pays GBP/USD)
-    // Client wants lowest rate. Bank sells LHS at Ask.
-    // Least favorable rate for client is the HIGHEST Ask price across the window.
-    windowRate = windowAsk;
-    worstCaseDate = (endFwd.forwardAsk >= startFwd.forwardAsk) ? windowEndStr : windowStartStr;
-    worstCaseDays = (endFwd.forwardAsk >= startFwd.forwardAsk) ? endFwd.days : startFwd.days;
-    windowPoints = windowPointsAsk;
-  } else {
-    // Client SELLS LHS / BUYS RHS (e.g. Sells EUR, Receives GBP/USD)
-    // Client wants highest rate. Bank buys LHS at Bid.
-    // Least favorable rate for client is the LOWEST Bid price across the window.
+  if (isLHS) {
+    // Client SELLS base (EUR) / BUYS terms (USD/GBP) at Bank BID
+    // Least favorable rate for client is the LOWEST Bid price across the window
     windowRate = windowBid;
     worstCaseDate = (endFwd.forwardBid <= startFwd.forwardBid) ? windowEndStr : windowStartStr;
     worstCaseDays = (endFwd.forwardBid <= startFwd.forwardBid) ? endFwd.days : startFwd.days;
     windowPoints = windowPointsBid;
+  } else {
+    // Client BUYS base (EUR) / SELLS terms (USD/GBP) at Bank ASK
+    // Least favorable rate for client is the HIGHEST Ask price across the window
+    windowRate = windowAsk;
+    worstCaseDate = (endFwd.forwardAsk >= startFwd.forwardAsk) ? windowEndStr : windowStartStr;
+    worstCaseDays = (endFwd.forwardAsk >= startFwd.forwardAsk) ? endFwd.days : startFwd.days;
+    windowPoints = windowPointsAsk;
   }
 
-  const benchmarkEndRate = isBuyLHS ? endFwd.forwardAsk : endFwd.forwardBid;
+  const benchmarkEndRate = isLHS ? endFwd.forwardBid : endFwd.forwardAsk;
   const carryCostPips = Math.abs(windowRate - benchmarkEndRate) / pair.pipSize;
   const carryCostCash = Math.abs(windowRate - benchmarkEndRate) * notional;
   const totalSettlementCash = notional * windowRate;
@@ -424,15 +425,15 @@ async function calculateWindowForward(pairKey, tradeDateStr, windowStartStr, win
   return {
     pair: pair.symbol,
     pairName: pair.name,
-    lhs: pair.lhs,
-    rhs: pair.rhs,
+    base: pair.base,
+    quote: pair.quote,
     tradeDate: tradeDateStr,
     spotDate: startFwd.spotDate,
     spot: startFwd.spot,
     spotBid: startFwd.spotBid,
     spotAsk: startFwd.spotAsk,
-    direction: isBuyLHS ? 'BUY_LHS' : 'SELL_LHS',
-    directionLabel: isBuyLHS ? `Client BUYS ${pair.lhs} (LHS) / SELLS ${pair.rhs} (RHS)` : `Client SELLS ${pair.lhs} (LHS) / BUYS ${pair.rhs} (RHS)`,
+    direction: isLHS ? 'LHS' : 'RHS',
+    directionLabel: isLHS ? `LHS — Client SELLS ${pair.base} / BUYS ${pair.quote} (Bid)` : `RHS — Client BUYS ${pair.base} / SELLS ${pair.quote} (Ask)`,
     windowStart: windowStartStr,
     windowEnd: windowEndStr,
     windowDurationDays: endFwd.days - startFwd.days,
@@ -471,10 +472,14 @@ async function calculateWindowForward(pairKey, tradeDateStr, windowStartStr, win
       currency: pair.rhs
     },
     notional: {
+      baseAmount: notional,
+      baseCurrency: pair.base,
+      settlementCashflow: parseFloat(totalSettlementCash.toFixed(2)),
+      quoteCurrency: pair.quote,
       lhsAmount: notional,
-      lhsCurrency: pair.lhs,
+      lhsCurrency: pair.base,
       rhsSettlementCashflow: parseFloat(totalSettlementCash.toFixed(2)),
-      rhsCurrency: pair.rhs
+      rhsCurrency: pair.quote
     },
     windowSchedule
   };
