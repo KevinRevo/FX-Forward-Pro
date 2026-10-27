@@ -167,13 +167,15 @@ async function runWindow(pairKey, tradeDate, winStart, winEnd, direction, notion
   console.log(`${C.dim}${'-'.repeat(75)}${C.reset}`);
 
   console.log(`${C.white}Curve Structure:          ${C.cyan}${res.curveStructure}${C.reset}`);
-  console.log(`${C.white}Start Date (${res.windowStart}):  Bid ${C.bold}${res.startDatePricing.bid}${C.reset} / Ask ${C.bold}${res.startDatePricing.ask}${C.reset} (Mid: ${res.startDatePricing.mid}, Points: ${res.startDatePricing.pointsMid} pips)`);
-  console.log(`${C.white}End Date (${res.windowEnd}):    Bid ${C.bold}${res.endDatePricing.bid}${C.reset} / Ask ${C.bold}${res.endDatePricing.ask}${C.reset} (Mid: ${res.endDatePricing.mid}, Points: ${res.endDatePricing.pointsMid} pips)`);
+  console.log(`${C.white}Window Start (${res.windowStart}):  Bid ${C.green}${C.bold}${res.startDatePricing.bid}${C.reset} / Ask ${C.amber}${C.bold}${res.startDatePricing.ask}${C.reset} (Mid: ${res.startDatePricing.mid}, Points: ${res.startDatePricing.pointsMid} pips)`);
+  console.log(`${C.white}Window End (${res.windowEnd}):    Bid ${C.green}${C.bold}${res.endDatePricing.bid}${C.reset} / Ask ${C.amber}${C.bold}${res.endDatePricing.ask}${C.reset} (Mid: ${res.endDatePricing.mid}, Points: ${res.endDatePricing.pointsMid} pips)`);
   console.log(`${C.white}Conservative Pillar:      ${C.amber}${res.worstCaseDate} (${res.worstCaseDays} days from spot)${C.reset}`);
   console.log(`${C.dim}${'-'.repeat(75)}${C.reset}`);
 
-  console.log(`${C.amber}${C.bold}GUARANTEED WINDOW RATE:   ${res.windowRate}${C.reset}`);
-  console.log(`${C.white}WINDOW POINTS:            ${res.windowPoints >= 0 ? C.green + '+' : C.red}${res.windowPoints} pips${C.reset}`);
+  console.log(`${C.green}${C.bold}WINDOW FORWARD BID:       ${res.windowBid} (Client SELLS LHS)${C.reset}`);
+  console.log(`${C.amber}${C.bold}WINDOW FORWARD ASK:       ${res.windowAsk} (Client BUYS LHS)${C.reset}`);
+  console.log(`${C.white}WINDOW POINTS (BID/ASK):  ${res.windowPointsBid >= 0 ? '+' : ''}${res.windowPointsBid} pips / ${res.windowPointsAsk >= 0 ? '+' : ''}${res.windowPointsAsk} pips${C.reset}`);
+  console.log(`${C.white}CLIENT EXECUTABLE RATE:   ${C.amber}${C.bold}${res.windowRate}${C.reset} (${res.directionLabel})`);
   console.log(`${C.white}WINDOW CARRY PENALTY:     ${res.windowCost.pips} pips (${res.windowCost.cashflow.toLocaleString('en-US')} ${res.windowCost.currency})`);
   console.log(`${C.white}SETTLEMENT CASHFLOW:      ${C.bold}${res.notional.rhsSettlementCashflow.toLocaleString('en-US')} ${res.notional.rhsCurrency}${C.reset} for ${res.notional.lhsAmount.toLocaleString('en-US')} ${res.notional.lhsCurrency}\n`);
 
@@ -242,23 +244,26 @@ async function runCompare(pairKey, date1, date2, noXccy) {
   console.log(`${C.dim}${'-'.repeat(93)}${C.reset}\n`);
 }
 
-async function runBroken(pairKey, tradeDate, targetSettlement, noXccy) {
+async function runBroken(pairKey, tradeDate, targetSettlement, noXccy, customSpot) {
   printBanner();
   const pair = PAIRS[pairKey] || PAIRS.EURUSD;
   console.log(`${C.dim}Pricing Fixed Forward / Broken Date for ${pair.name}...${C.reset}\n`);
 
-  const res = await calculateBrokenDateForward(pairKey, tradeDate, targetSettlement, { applyXccy: !noXccy });
+  const res = await calculateBrokenDateForward(pairKey, tradeDate, targetSettlement, { applyXccy: !noXccy, spot: customSpot });
 
   console.log(`${C.white}${C.bold}PAIR: ${C.amber}${res.pair}${C.reset}`);
   console.log(`${C.white}TRADE DATE: ${C.cyan}${res.tradeDate}${C.reset}  -->  ${C.white}SPOT DATE: ${C.cyan}${res.spotDate}${C.reset}`);
   console.log(`${C.white}FIXED SETTLEMENT DATE: ${C.amber}${C.bold}${res.maturityDate}${C.reset} (${C.white}${res.days} calendar days${C.reset})`);
   console.log(`${C.dim}${'-'.repeat(60)}${C.reset}`);
-  console.log(`${C.white}SPOT MID:                 ${C.bold}${res.spot}${C.reset}`);
+  console.log(`${C.white}SPOT BID / ASK:           ${C.green}${res.spotBid}${C.reset} / ${C.amber}${res.spotAsk}${C.reset} (Mid: ${res.spot})`);
   console.log(`${C.white}INTERPOLATED BASE RATE:   ${C.cyan}${res.baseRate.toFixed(3)}%${C.reset}`);
   console.log(`${C.white}INTERPOLATED QUOTE RATE:  ${C.cyan}${res.quoteRate.toFixed(3)}%${C.reset}`);
   console.log(`${C.white}XCCY BASIS SPREAD:        ${res.xccyBps} bps`);
-  console.log(`${C.white}SWAP POINTS:              ${res.swapPoints >= 0 ? C.green + '+' : C.red}${res.swapPoints} pips${C.reset}`);
-  console.log(`${C.amber}${C.bold}OUTRIGHT FORWARD RATE:    ${res.outrightForward}${C.reset}`);
+  console.log(`${C.white}SWAP POINTS (BID/ASK):    ${res.pointsBid >= 0 ? '+' : ''}${res.pointsBid} / ${res.pointsAsk >= 0 ? '+' : ''}${res.pointsAsk} pips (Mid: ${res.swapPoints} pips)`);
+  console.log(`${C.dim}${'-'.repeat(60)}${C.reset}`);
+  console.log(`${C.green}${C.bold}INTERBANK FORWARD BID:    ${res.forwardBid} (Client SELLS LHS)${C.reset}`);
+  console.log(`${C.amber}${C.bold}INTERBANK FORWARD ASK:    ${res.forwardAsk} (Client BUYS LHS)${C.reset}`);
+  console.log(`${C.white}FORWARD MID:              ${res.outrightForward}`);
   console.log(`${C.white}ANNUALIZED PREMIUM:       ${res.annPremiumPct}% p.a.${C.reset}\n`);
 }
 
@@ -300,7 +305,7 @@ async function main() {
     } else if (options.compare) {
       await runCompare(options.pair, options.compare[0], options.compare[1], options.noXccy);
     } else if (options.broken) {
-      await runBroken(options.pair, options.date, options.broken, options.noXccy);
+      await runBroken(options.pair, options.date, options.broken, options.noXccy, options.spot);
     } else if (options.history) {
       await runHistory(options.pair, options.history, options.from, options.to);
     } else {
