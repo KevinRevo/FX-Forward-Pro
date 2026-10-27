@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BLOOMBERG FX FORWARD TERMINAL | Interbank CIP & Historical Engine</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="bbg-terminal">
+    <!-- Top Terminal Command Bar -->
+    <header class="terminal-header">
+      <div class="terminal-brand">
+        <span class="bbg-logo">BLOOMBERG</span>
+        <span class="terminal-badge">INTERBANK FX FORWARD (CIP)</span>
+      </div>
+
+      <div class="command-line-box">
+        <span class="prompt">BBG&gt;</span>
+        <input type="text" id="command-input" placeholder="Enter command (e.g. EURUSD FRD, EURUSD COMP 2023-10-15 2024-09-15) or type Help..." autocomplete="off" spellcheck="false">
+        <button id="go-btn" class="bbg-go-btn" title="Execute command">&lt;GO&gt;</button>
+      </div>
+
+      <div class="system-clock" id="system-clock">--:--:-- UTC</div>
+    </header>
+
+    <!-- Subheader & Quick Scenarios -->
+    <div class="scenario-bar">
+      <div class="preset-label">SCENARIOS &lt;CMPO&gt;:</div>
+      <div class="presets-container" id="presets-container">
+        <!-- populated dynamically -->
+      </div>
+    </div>
+
+    <!-- Active Security Banner -->
+    <div class="security-banner">
+      <div class="sec-left">
+        <span class="sec-pair" id="active-pair-name">EUR/USD Curncy</span>
+        <span class="sec-spot-label">SPOT:</span>
+        <span class="sec-spot-bid" id="banner-spot-bid">1.0820</span>
+        <span class="sec-spot-slash">/</span>
+        <span class="sec-spot-ask" id="banner-spot-ask">1.0825</span>
+        <span class="sec-spot-mid" id="banner-spot-mid">(1.08225)</span>
+        <span class="sec-change positive" id="banner-spot-change">+0.0012 (+0.11%)</span>
+      </div>
+      <div class="sec-right">
+        <span class="sec-tag">BASE: <span id="banner-base-rate" class="rate-val">€STR 3.25%</span> (ACT/360)</span>
+        <span class="sec-separator">|</span>
+        <span class="sec-tag">QUOTE: <span id="banner-quote-rate" class="rate-val">SOFR 4.85%</span> (ACT/360)</span>
+        <span class="sec-separator">|</span>
+        <span class="sec-tag">XCCY BASIS: <span id="banner-xccy-basis" class="rate-val">-18.0 bps</span></span>
+      </div>
+    </div>
+
+    <!-- Navigation Function Tabs -->
+    <nav class="function-tabs" role="tablist">
+      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="frd">
+        <span class="fn-code">FRD</span> Forward Rate Display
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="comp">
+        <span class="fn-code">COMP</span> Historical Curve Comparison
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="hist">
+        <span class="fn-code">HIST</span> Tenor Time Series
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="fxfa">
+        <span class="fn-code">FXFA</span> Broken Date Analytics
+      </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="terminal-main">
+      <!-- 1. FRD SCREEN (Forward Rate Display Ladder) -->
+      <section id="tab-frd" class="tab-pane active" role="tabpanel">
+        <div class="pane-controls">
+          <div class="control-group">
+            <label for="frd-pair-select">PAIR:</label>
+            <select id="frd-pair-select" class="bbg-select"></select>
+          </div>
+
+          <div class="control-group">
+            <label for="frd-date-input">AS OF (TRADE DATE):</label>
+            <input type="date" id="frd-date-input" class="bbg-input" value="2023-10-15">
+            <div class="quick-dates">
+              <button class="quick-date-btn" data-date="2023-10-15">Oct 2023 (Peak)</button>
+              <button class="quick-date-btn" data-date="2022-06-15">Jun 2022 (Hikes)</button>
+              <button class="quick-date-btn" data-date="2020-04-15">Apr 2020 (COVID)</button>
+              <button class="quick-date-btn" data-date="2019-10-15">Oct 2019</button>
+              <button class="quick-date-btn" data-date="today">Today</button>
+            </div>
+          </div>
+
+          <div class="control-group toggle-group">
+            <label class="switch-label">
+              <input type="checkbox" id="frd-xccy-toggle" checked>
+              <span class="switch-custom"></span>
+              <span class="switch-text">Cross-Currency Basis (XCCY)</span>
+            </label>
+          </div>
+
+          <div class="control-group action-group">
+            <button id="frd-refresh-btn" class="bbg-action-btn primary">&lt;REFRESH&gt;</button>
+            <button id="frd-export-csv" class="bbg-action-btn">Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Responsive Table Container -->
+        <div class="table-container" tabindex="0" role="region" aria-label="Forward Rate Display Ladder">
+          <table class="bbg-table" id="frd-table">
+            <thead>
+              <tr>
+                <th scope="col" class="th-tenor">TENOR</th>
+                <th scope="col">SETTLEMENT</th>
+                <th scope="col" class="text-right">DAYS</th>
+                <th scope="col" class="text-right">BASE RATE %</th>
+                <th scope="col" class="text-right">QUOTE RATE %</th>
+                <th scope="col" class="text-right">DIFF %</th>
+                <th scope="col" class="text-right">XCCY (bp)</th>
+                <th scope="col" class="text-right th-points">POINTS BID</th>
+                <th scope="col" class="text-right th-points highlight">POINTS MID</th>
+                <th scope="col" class="text-right th-points">POINTS ASK</th>
+                <th scope="col" class="text-right th-fwd">FORWARD BID</th>
+                <th scope="col" class="text-right th-fwd highlight">OUTRIGHT MID</th>
+                <th scope="col" class="text-right th-fwd">FORWARD ASK</th>
+                <th scope="col" class="text-right">ANN. PRM %</th>
+              </tr>
+            </thead>
+            <tbody id="frd-table-body">
+              <tr><td colspan="14" class="text-center">Loading forward ladder...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="terminal-footer-notes">
+          <span>* Conventions: Standard CIP formula with money market simple interest for ≤1Y and annual compounding for &gt;1Y. Day counts adhere to ISDA standard calendar conventions.</span>
+        </div>
+      </section>
+
+      <!-- 2. COMP SCREEN (Historical Curve Comparison) -->
+      <section id="tab-comp" class="tab-pane" role="tabpanel">
+        <div class="pane-controls">
+          <div class="control-group">
+            <label for="comp-pair-select">PAIR:</label>
+            <select id="comp-pair-select" class="bbg-select"></select>
+          </div>
+
+          <div class="control-group">
+            <label for="comp-date1">DATE 1 (BASELINE):</label>
+            <input type="date" id="comp-date1" class="bbg-input" value="2023-10-15">
+          </div>
+
+          <div class="control-group">
+            <label for="comp-date2">DATE 2 (COMPARISON):</label>
+            <input type="date" id="comp-date2" class="bbg-input" value="2024-09-15">
+          </div>
+
+          <div class="control-group action-group">
+            <button id="comp-run-btn" class="bbg-action-btn primary">&lt;COMPARE&gt;</button>
+          </div>
+        </div>
+
+        <!-- Curve Visual Comparison Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">TERM STRUCTURE COMPARISON: FORWARD POINTS (PIPS)</div>
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-color color-date1"></span> <span id="comp-legend-date1">Date 1 (2023-10-15)</span></span>
+              <span class="legend-item"><span class="legend-color color-date2"></span> <span id="comp-legend-date2">Date 2 (2024-09-15)</span></span>
+            </div>
+          </div>
+          <div class="chart-svg-container" id="comp-curve-chart">
+            <!-- SVG rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Side-by-Side Comparison Table -->
+        <div class="table-container" tabindex="0" role="region" aria-label="Forward Curve Comparison Table">
+          <table class="bbg-table" id="comp-table">
+            <thead>
+              <tr>
+                <th scope="col">TENOR</th>
+                <th scope="col" class="text-right">DAYS</th>
+                <th scope="col" class="text-right th-date1">FWD (DATE 1)</th>
+                <th scope="col" class="text-right th-date2">FWD (DATE 2)</th>
+                <th scope="col" class="text-right highlight">Δ OUTRIGHT</th>
+                <th scope="col" class="text-right th-date1">POINTS 1 (pips)</th>
+                <th scope="col" class="text-right th-date2">POINTS 2 (pips)</th>
+                <th scope="col" class="text-right highlight">Δ POINTS (pips)</th>
+                <th scope="col" class="text-right">DIFF 1 %</th>
+                <th scope="col" class="text-right">DIFF 2 %</th>
+                <th scope="col" class="text-right">Δ RATE DIFF (bp)</th>
+              </tr>
+            </thead>
+            <tbody id="comp-table-body">
+              <tr><td colspan="11" class="text-center">Select dates and run comparison...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 3. HIST SCREEN (Tenor Time Series) -->
+      <section id="tab-hist" class="tab-pane" role="tabpanel">
+        <div class="pane-controls">
+          <div class="control-group">
+            <label for="hist-pair-select">PAIR:</label>
+            <select id="hist-pair-select" class="bbg-select"></select>
+          </div>
+
+          <div class="control-group">
+            <label for="hist-tenor-select">TENOR:</label>
+            <select id="hist-tenor-select" class="bbg-select">
+              <option value="1M">1 Month (1M)</option>
+              <option value="3M" selected>3 Months (3M)</option>
+              <option value="6M">6 Months (6M)</option>
+              <option value="1Y">1 Year (1Y)</option>
+              <option value="2Y">2 Years (2Y)</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="hist-start-date">FROM:</label>
+            <input type="date" id="hist-start-date" class="bbg-input" value="2023-01-01">
+          </div>
+
+          <div class="control-group">
+            <label for="hist-end-date">TO:</label>
+            <input type="date" id="hist-end-date" class="bbg-input" value="2024-09-15">
+          </div>
+
+          <div class="control-group action-group">
+            <button id="hist-run-btn" class="bbg-action-btn primary">&lt;GRAPH&gt;</button>
+          </div>
+        </div>
+
+        <!-- Historical Time Series Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title" id="hist-chart-title">EURUSD 3M FORWARD VS SPOT OVER TIME</div>
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-color color-spot"></span> Spot Rate</span>
+              <span class="legend-item"><span class="legend-color color-fwd"></span> Forward Outright Rate</span>
+            </div>
+          </div>
+          <div class="chart-svg-container" id="hist-rate-chart">
+            <!-- SVG rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Historical Points Subchart -->
+        <div class="chart-card points-card">
+          <div class="chart-header">
+            <div class="chart-title">SWAP POINTS (PIPS) EVOLUTION</div>
+          </div>
+          <div class="chart-svg-container" id="hist-points-chart">
+            <!-- SVG rendered by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. FXFA SCREEN (Broken Date Analytics & Calculator) -->
+      <section id="tab-fxfa" class="tab-pane" role="tabpanel">
+        <div class="fxfa-grid">
+          <div class="fxfa-card input-card">
+            <h2 class="card-heading">FORWARD BROKEN DATE PARAMETERS</h2>
+            <div class="form-row">
+              <label for="fxfa-pair-select">Currency Pair:</label>
+              <select id="fxfa-pair-select" class="bbg-select"></select>
+            </div>
+            <div class="form-row">
+              <label for="fxfa-asof-date">As-Of Trade Date:</label>
+              <input type="date" id="fxfa-asof-date" class="bbg-input" value="2023-10-15">
+            </div>
+            <div class="form-row">
+              <label for="fxfa-settle-date">Target Maturity / Broken Date:</label>
+              <input type="date" id="fxfa-settle-date" class="bbg-input" value="2024-02-28">
+            </div>
+            <div class="form-row">
+              <label for="fxfa-notional">Base Notional Amount:</label>
+              <input type="number" id="fxfa-notional" class="bbg-input" value="1000000" step="50000">
+            </div>
+            <div class="form-row toggle-row">
+              <label class="switch-label">
+                <input type="checkbox" id="fxfa-xccy-toggle" checked>
+                <span class="switch-custom"></span>
+                <span class="switch-text">Include Cross-Currency Basis</span>
+              </label>
+            </div>
+            <button id="fxfa-calculate-btn" class="bbg-action-btn primary large">&lt;CALCULATE PRICING&gt;</button>
+          </div>
+
+          <div class="fxfa-card results-card">
+            <h2 class="card-heading">PRICING &amp; PARITY DECOMPOSITION</h2>
+            <div class="metrics-grid" id="fxfa-metrics">
+              <div class="metric-box">
+                <div class="metric-label">CALENDAR DAYS TO SETTLE</div>
+                <div class="metric-value" id="res-days">134</div>
+                <div class="metric-sub" id="res-spot-date">Spot: 2023-10-17</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">SPOT RATE</div>
+                <div class="metric-value highlight" id="res-spot">1.05216</div>
+                <div class="metric-sub">Mid Market</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">SWAP POINTS</div>
+                <div class="metric-value positive" id="res-points">+47.2 pips</div>
+                <div class="metric-sub" id="res-ann-prm">+1.20% Ann.</div>
+              </div>
+              <div class="metric-box primary-result">
+                <div class="metric-label">OUTRIGHT FORWARD RATE</div>
+                <div class="metric-value amber-bold" id="res-outright">1.05688</div>
+                <div class="metric-sub">Forward Settlement Price</div>
+              </div>
+            </div>
+
+            <div class="decomposition-box">
+              <div class="decomp-row">
+                <span>Interpolated Base Zero Rate:</span>
+                <span id="res-base-rate" class="rate-val">3.96%</span>
+              </div>
+              <div class="decomp-row">
+                <span>Interpolated Quote Zero Rate:</span>
+                <span id="res-quote-rate" class="rate-val">5.44%</span>
+              </div>
+              <div class="decomp-row">
+                <span>Cross-Currency Basis Spread:</span>
+                <span id="res-xccy-basis" class="rate-val">-24.1 bps</span>
+              </div>
+              <div class="decomp-row total">
+                <span>Settlement Cashflow (Term Currency):</span>
+                <span id="res-cashflow" class="rate-val highlight">$1,056,880.00 USD</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Status Bar -->
+    <footer class="terminal-status-bar">
+      <div class="status-left">
+        <span class="status-indicator online"></span>
+        <span class="status-text">INTERBANK CIP ENGINE: READY</span>
+        <span class="status-sep">|</span>
+        <span class="status-key">F1: HELP</span>
+        <span class="status-key">F2: FRD</span>
+        <span class="status-key">F3: COMP</span>
+        <span class="status-key">F4: HIST</span>
+        <span class="status-key">F5: FXFA</span>
+      </div>
+      <div class="status-right">
+        <span>BLOOMBERG-LIKE SYSTEM v2.5 | DUAL CURVE OIS DISCOUNTING</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
