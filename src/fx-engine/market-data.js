@@ -167,74 +167,80 @@ const memoryCache = {
  */
 async function getSpotRate(pairKey, dateStr) {
   const pair = PAIRS[pairKey] || PAIRS.EURUSD;
-  const cacheKey = `${pairKey}_${dateStr}`;
+  const isInv = pair.isInverted;
+  const standardKey = pair.standardPairKey || pairKey;
+  const stdPair = PAIRS[standardKey] || PAIRS.EURUSD;
+
+  const cacheKey = `${standardKey}_${dateStr}`;
+
+  let fetchedRate = null;
 
   if (memoryCache.spots.has(cacheKey)) {
-    return memoryCache.spots.get(cacheKey);
-  }
-
-  // 1. Check local disk cache
-  const diskCacheFile = path.join(CACHE_DIR, `spot_${pairKey}.json`);
-  let cachedData = {};
-  if (fs.existsSync(diskCacheFile)) {
-    try {
-      cachedData = JSON.parse(fs.readFileSync(diskCacheFile, 'utf8'));
-      if (cachedData[dateStr]) {
-        memoryCache.spots.set(cacheKey, cachedData[dateStr]);
-        return cachedData[dateStr];
-      }
-    } catch (e) {
-      // ignore
+    fetchedRate = memoryCache.spots.get(cacheKey);
+  } else {
+    // 1. Check local disk cache
+    const diskCacheFile = path.join(CACHE_DIR, `spot_${standardKey}.json`);
+    let cachedData = {};
+    if (fs.existsSync(diskCacheFile)) {
+      try {
+        cachedData = JSON.parse(fs.readFileSync(diskCacheFile, 'utf8'));
+        if (cachedData[dateStr]) {
+          fetchedRate = cachedData[dateStr];
+        }
+      } catch (e) {}
     }
-  }
 
-  // 2. Fetch from Yahoo Finance if online
-  let fetchedRate = null;
-  try {
-    const targetDate = new Date(dateStr);
-    const startPeriod = Math.floor(targetDate.getTime() / 1000) - (86400 * 7); // 7 days window
-    const endPeriod = Math.floor(targetDate.getTime() / 1000) + (86400 * 2);
+    // 2. Fetch from Yahoo Finance if online
+    if (!fetchedRate) {
+      try {
+        const targetDate = new Date(dateStr);
+        const startPeriod = Math.floor(targetDate.getTime() / 1000) - (86400 * 7);
+        const endPeriod = Math.floor(targetDate.getTime() / 1000) + (86400 * 2);
 
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${pair.yahooTicker}?period1=${startPeriod}&period2=${endPeriod}&interval=1d`;
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-      signal: AbortSignal.timeout(3000)
-    });
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${stdPair.yahooTicker}?period1=${startPeriod}&period2=${endPeriod}&interval=1d`;
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+          signal: AbortSignal.timeout(3000)
+        });
 
-    if (res.ok) {
-      const json = await res.json();
-      const result = json.chart?.result?.[0];
-      if (result && result.timestamp && result.indicators?.quote?.[0]?.close) {
-        const timestamps = result.timestamp;
-        const closes = result.indicators.quote[0].close;
+        if (res.ok) {
+          const json = await res.json();
+          const result = json.chart?.result?.[0];
+          if (result && result.timestamp && result.indicators?.quote?.[0]?.close) {
+            const timestamps = result.timestamp;
+            const closes = result.indicators.quote[0].close;
 
-        // Find closest closing price before or on dateStr
-        for (let i = timestamps.length - 1; i >= 0; i--) {
-          const tDate = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
-          if (tDate <= dateStr && closes[i] != null) {
-            fetchedRate = parseFloat(closes[i].toFixed(pair.quoteDecimals));
-            cachedData[tDate] = fetchedRate;
-            break;
+            for (let i = timestamps.length - 1; i >= 0; i--) {
+              const tDate = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
+              if (tDate <= dateStr && closes[i] != null) {
+                fetchedRate = parseFloat(closes[i].toFixed(stdPair.quoteDecimals));
+                cachedData[tDate] = fetchedRate;
+                break;
+              }
+            }
           }
         }
-      }
+      } catch (err) {}
     }
-  } catch (err) {
-    // network failure or timeout, fallback to interpolation
+
+    // 3. Fallback
+    if (!fetchedRate) {
+      fetchedRate = interpolateHistoricalSpot(standardKey, dateStr);
+    }
+
+    cachedData[dateStr] = fetchedRate;
+    try {
+      fs.writeFileSync(path.join(CACHE_DIR, `spot_${standardKey}.json`), JSON.stringify(cachedData, null, 2));
+    } catch (e) {}
+
+    memoryCache.spots.set(cacheKey, fetchedRate);
   }
 
-  // 3. Fallback to baseline interpolation if not found via Yahoo
-  if (!fetchedRate) {
-    fetchedRate = interpolateHistoricalSpot(pairKey, dateStr);
+  if (isInv) {
+    const invSpot = 1 / fetchedRate;
+    return parseFloat(invSpot.toFixed(pair.quoteDecimals));
   }
 
-  // Save to cache
-  cachedData[dateStr] = fetchedRate;
-  try {
-    fs.writeFileSync(diskCacheFile, JSON.stringify(cachedData, null, 2));
-  } catch (e) {}
-
-  memoryCache.spots.set(cacheKey, fetchedRate);
   return fetchedRate;
 }
 
@@ -320,13 +326,17 @@ function enrichCurve(raw) {
  * Get Cross-Currency Basis (XCCY) spread in basis points (bps) for a pair on a date.
  */
 function getCrossCurrencyBasisBps(pairKey, dateStr, tenor = '3M') {
+  const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+  const standardKey = pair.standardPairKey || pairKey;
+  const isInv = pair.isInverted;
+
   const sortedRegimes = [...HISTORICAL_REGIMES].sort((a, b) => new Date(a.date) - new Date(b.date));
   let basis = -20; // default -20 bps
 
   if (dateStr <= sortedRegimes[0].date) {
-    basis = sortedRegimes[0].basisBps[pairKey] ?? -15;
+    basis = sortedRegimes[0].basisBps[standardKey] ?? -15;
   } else if (dateStr >= sortedRegimes[sortedRegimes.length - 1].date) {
-    basis = sortedRegimes[sortedRegimes.length - 1].basisBps[pairKey] ?? -15;
+    basis = sortedRegimes[sortedRegimes.length - 1].basisBps[standardKey] ?? -15;
   } else {
     for (let i = 0; i < sortedRegimes.length - 1; i++) {
       const t1 = new Date(sortedRegimes[i].date).getTime();
@@ -335,22 +345,25 @@ function getCrossCurrencyBasisBps(pairKey, dateStr, tenor = '3M') {
 
       if (tCur >= t1 && tCur <= t2) {
         const weight = (tCur - t1) / (t2 - t1);
-        const b1 = sortedRegimes[i].basisBps[pairKey] ?? -15;
-        const b2 = sortedRegimes[i + 1].basisBps[pairKey] ?? -15;
+        const b1 = sortedRegimes[i].basisBps[standardKey] ?? -15;
+        const b2 = sortedRegimes[i + 1].basisBps[standardKey] ?? -15;
         basis = b1 + weight * (b2 - b1);
         break;
       }
     }
   }
 
-  // Term structure adjustment for basis spread (basis is usually more negative on longer tenors)
+  // Term structure adjustment for basis spread
   const tenorMultiplier = {
     ON: 0.2, TN: 0.2, SN: 0.2, '1W': 0.4, '2W': 0.6, '1M': 0.8,
     '2M': 0.9, '3M': 1.0, '6M': 1.15, '9M': 1.25, '1Y': 1.35, '2Y': 1.45, '3Y': 1.5, '5Y': 1.5
   };
 
   const mult = tenorMultiplier[tenor] || 1.0;
-  return basis * mult;
+  const result = basis * mult;
+
+  // Invert sign if inverted pair
+  return isInv ? -result : result;
 }
 
 /**
