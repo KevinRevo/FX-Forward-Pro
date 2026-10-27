@@ -1,25 +1,32 @@
 #!/usr/bin/env node
 /**
- * Bloomberg-Style FX Forward CLI
+ * Institutional Interbank FX Forward CLI
+ * Supports:
+ *   - Bidirectional pairs: EURUSD, USDEUR, GBPUSD, USDGBP, USDJPY, JPYUSD, etc.
+ *   - Fixed Forward / Broken Date pricing
+ *   - Window Forward (flexible delivery) pricing
+ *   - Side-by-side historical curve comparison
+ *
  * Usage:
  *   node cli.js EURUSD
- *   node cli.js EURUSD --date 2023-10-15
+ *   node cli.js USDEUR --date 2023-10-15
  *   node cli.js EURUSD --compare 2023-10-15 2024-09-15
  *   node cli.js EURUSD --broken 2024-12-20 --date 2024-01-15
- *   node cli.js USDJPY --history 3M --from 2023-01-01 --to 2024-01-01
+ *   node cli.js EURUSD --window 2023-11-15 2024-01-15 --direction BUY --date 2023-10-15
  */
 
 const {
   getForwardLadder,
   compareForwardCurves,
   calculateBrokenDateForward,
-  getTenorHistory
+  getTenorHistory,
+  calculateWindowForward
 } = require('./src/fx-engine/cip-calculator');
 const { PAIRS } = require('./src/fx-engine/conventions');
 
 const args = process.argv.slice(2);
 
-// ANSI color codes for authentic terminal look
+// ANSI color codes
 const C = {
   reset: '\x1b[0m',
   bold: '\x1b[1m',
@@ -29,14 +36,13 @@ const C = {
   red: '\x1b[38;5;196m',
   white: '\x1b[38;5;255m',
   dim: '\x1b[38;5;244m',
-  bgDark: '\x1b[48;5;234m',
   bgHeader: '\x1b[48;5;236m'
 };
 
 function printBanner() {
   console.log(`${C.amber}${C.bold}`);
   console.log(`========================================================================================`);
-  console.log(`   BLOOMBERG-LIKE INTERBANK FX FORWARD TERMINAL (CIP ENGINE)                            `);
+  console.log(`   INTERBANK FX FORWARD TERMINAL (DUAL-CURVE CIP & WINDOW PRICING ENGINE)              `);
   console.log(`========================================================================================${C.reset}`);
 }
 
@@ -46,6 +52,9 @@ function parseArgs() {
     date: new Date().toISOString().split('T')[0],
     compare: null,
     broken: null,
+    window: null,
+    direction: 'BUY_BASE',
+    notional: 1000000,
     history: null,
     from: '2023-01-01',
     to: '2024-01-01',
@@ -53,15 +62,22 @@ function parseArgs() {
   };
 
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i].toUpperCase();
-    if (PAIRS[arg]) {
-      options.pair = arg;
+    const raw = args[i].toUpperCase().replace(/[\/:]/g, '');
+    if (PAIRS[raw]) {
+      options.pair = raw;
     } else if (args[i] === '--date' && args[i + 1]) {
       options.date = args[++i];
     } else if (args[i] === '--compare' && args[i + 1] && args[i + 2]) {
       options.compare = [args[++i], args[++i]];
     } else if (args[i] === '--broken' && args[i + 1]) {
       options.broken = args[++i];
+    } else if (args[i] === '--window' && args[i + 1] && args[i + 2]) {
+      options.window = [args[++i], args[++i]];
+    } else if (args[i] === '--direction' && args[i + 1]) {
+      const d = args[++i].toUpperCase();
+      options.direction = d.startsWith('S') ? 'SELL_BASE' : 'BUY_BASE';
+    } else if (args[i] === '--notional' && args[i + 1]) {
+      options.notional = parseFloat(args[++i]);
     } else if (args[i] === '--history') {
       options.history = args[i + 1] && !args[i + 1].startsWith('--') ? args[++i] : '3M';
     } else if (args[i] === '--from' && args[i + 1]) {
@@ -85,7 +101,8 @@ function pad(str, len, align = 'left') {
 
 async function runLadder(pairKey, dateStr, noXccy) {
   printBanner();
-  console.log(`${C.dim}Loading market rates & constructing forward curve for ${pairKey} as of ${dateStr}...${C.reset}\n`);
+  const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+  console.log(`${C.dim}Loading market rates & constructing forward curve for ${pair.name} as of ${dateStr}...${C.reset}\n`);
 
   const data = await getForwardLadder(pairKey, dateStr, { applyXccy: !noXccy });
 
@@ -93,7 +110,6 @@ async function runLadder(pairKey, dateStr, noXccy) {
   console.log(`${C.white}SPOT BID/ASK/MID: ${C.green}${data.spot.bid}${C.reset} / ${C.green}${data.spot.ask}${C.reset} (${C.amber}${data.spot.mid}${C.reset})   |   ${C.white}XCCY BASIS: ${data.applyXccy ? C.green + 'ACTIVE' : C.red + 'OFF'}${C.reset}`);
   console.log(`${C.dim}Base Rate (${data.baseCcy.code}): ACT/${data.baseCcy.dayCount} [${data.baseCcy.benchmark}]   |   Quote Rate (${data.quoteCcy.code}): ACT/${data.quoteCcy.dayCount} [${data.quoteCcy.benchmark}]${C.reset}\n`);
 
-  // Table header
   console.log(`${C.bgHeader}${C.amber}${C.bold}` +
     pad('TENOR', 6) +
     pad('SETTLE', 12) +
@@ -120,19 +136,67 @@ async function runLadder(pairKey, dateStr, noXccy) {
       `${C.cyan}${pad(row.baseRate.toFixed(2), 9, 'right')}${C.reset}` +
       `${C.cyan}${pad(row.quoteRate.toFixed(2), 9, 'right')}${C.reset}` +
       `${C.dim}${pad(row.xccyBps.toFixed(1), 9, 'right')}${C.reset}` +
-      `${ptsColor}${pad(sign + row.swapPoints.mid.toFixed(1), 16, 'right')}${C.reset}` +
-      `${fwdColor}${C.bold}${pad(row.outrightForward.mid.toFixed(PAIRS[pairKey].quoteDecimals), 16, 'right')}${C.reset}` +
+      `${ptsColor}${pad(sign + row.swapPoints.mid.toFixed(pair.pipDecimals), 16, 'right')}${C.reset}` +
+      `${fwdColor}${C.bold}${pad(row.outrightForward.mid.toFixed(pair.quoteDecimals), 16, 'right')}${C.reset}` +
       `${pad(row.annPremiumPct.toFixed(2) + '%', 9, 'right')}`
     );
   }
 
   console.log(`${C.dim}${'-'.repeat(93)}${C.reset}`);
-  console.log(`${C.dim}Tip: Run with --compare YYYY-MM-DD YYYY-MM-DD to compare curves side-by-side like Bloomberg COMP.${C.reset}\n`);
+  console.log(`${C.dim}Tip: Run with reverse direction (e.g. USDEUR) or --window YYYY-MM-DD YYYY-MM-DD for window forward.${C.reset}\n`);
+}
+
+async function runWindow(pairKey, tradeDate, winStart, winEnd, direction, notional, noXccy) {
+  printBanner();
+  const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+  console.log(`${C.dim}Pricing Window Forward (Flexible Delivery) for ${pair.name}...${C.reset}\n`);
+
+  const res = await calculateWindowForward(pairKey, tradeDate, winStart, winEnd, direction, {
+    applyXccy: !noXccy,
+    notional
+  });
+
+  console.log(`${C.white}${C.bold}PAIR: ${C.amber}${res.pairName} (${res.pair})${C.reset}`);
+  console.log(`${C.white}TRADE DATE: ${C.cyan}${res.tradeDate}${C.reset}  -->  ${C.white}SPOT DATE: ${C.cyan}${res.spotDate}${C.reset} (Spot: ${res.spot})`);
+  console.log(`${C.white}WINDOW PERIOD: ${C.cyan}${res.windowStart}${C.reset} to ${C.cyan}${res.windowEnd}${C.reset} (${res.windowDurationDays} days flexibility)`);
+  console.log(`${C.white}TRADING DIRECTION: ${C.bold}${res.directionLabel}${C.reset}`);
+  console.log(`${C.dim}${'-'.repeat(75)}${C.reset}`);
+
+  console.log(`${C.white}Curve Structure:          ${C.cyan}${res.curveStructure}${C.reset}`);
+  console.log(`${C.white}Start Date Rate:          ${res.startDatePricing.outright} (${res.startDatePricing.points >= 0 ? '+' : ''}${res.startDatePricing.points} pips)`);
+  console.log(`${C.white}End Date Rate:            ${res.endDatePricing.outright} (${res.endDatePricing.points >= 0 ? '+' : ''}${res.endDatePricing.points} pips)`);
+  console.log(`${C.white}Conservative Pillar:      ${C.amber}${res.worstCaseDate} (${res.worstCaseDays} days from spot)${C.reset}`);
+  console.log(`${C.dim}${'-'.repeat(75)}${C.reset}`);
+
+  console.log(`${C.amber}${C.bold}GUARANTEED WINDOW RATE:   ${res.windowRate}${C.reset}`);
+  console.log(`${C.white}WINDOW POINTS:            ${res.windowPoints >= 0 ? C.green + '+' : C.red}${res.windowPoints} pips${C.reset}`);
+  console.log(`${C.white}WINDOW CARRY PENALTY:     ${res.windowCost.pips} pips (${res.windowCost.cashflow.toLocaleString('en-US')} ${res.windowCost.currency})`);
+  console.log(`${C.white}SETTLEMENT CASHFLOW:      ${C.bold}${res.notional.settlementCashflow.toLocaleString('en-US')} ${res.notional.quoteCurrency}${C.reset} for ${res.notional.baseAmount.toLocaleString('en-US')} ${res.notional.baseCurrency}\n`);
+
+  console.log(`${C.bgHeader}${C.amber}${C.bold}` +
+    pad('WINDOW DATE', 14) +
+    pad('DAYS', 6, 'right') +
+    pad('SWAP POINTS', 14, 'right') +
+    pad('OUTRIGHT RATE', 16, 'right') +
+    `  ${C.reset}`
+  );
+  console.log(`${C.dim}${'-'.repeat(54)}${C.reset}`);
+
+  for (const s of res.windowSchedule) {
+    console.log(
+      `${pad(s.date, 14)}` +
+      `${pad(s.days, 6, 'right')}` +
+      `${pad((s.swapPoints >= 0 ? '+' : '') + s.swapPoints.toFixed(1), 14, 'right')}` +
+      `${C.bold}${pad(s.outrightForward.toFixed(pair.quoteDecimals), 16, 'right')}${C.reset}`
+    );
+  }
+  console.log(`${C.dim}${'-'.repeat(54)}${C.reset}\n`);
 }
 
 async function runCompare(pairKey, date1, date2, noXccy) {
   printBanner();
-  console.log(`${C.dim}Comparing forward curves for ${pairKey} between ${date1} and ${date2}...${C.reset}\n`);
+  const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+  console.log(`${C.dim}Comparing forward curves for ${pair.name} between ${date1} and ${date2}...${C.reset}\n`);
 
   const comp = await compareForwardCurves(pairKey, date1, date2, { applyXccy: !noXccy });
 
@@ -161,12 +225,12 @@ async function runCompare(pairKey, date1, date2, noXccy) {
     console.log(
       `${C.bold}${C.white}${pad(row.tenor, 7)}${C.reset}` +
       `${pad(row.days, 6, 'right')}` +
-      `${C.dim}${pad(row.date1.forward.toFixed(PAIRS[pairKey].quoteDecimals), 14, 'right')}${C.reset}` +
-      `${C.bold}${pad(row.date2.forward.toFixed(PAIRS[pairKey].quoteDecimals), 14, 'right')}${C.reset}` +
-      `${deltaOutColor}${pad(signO + row.delta.outright.toFixed(PAIRS[pairKey].quoteDecimals), 13, 'right')}${C.reset}` +
-      `${pad(row.date1.points.toFixed(1), 12, 'right')}` +
-      `${pad(row.date2.points.toFixed(1), 12, 'right')}` +
-      `${deltaPtsColor}${C.bold}${pad(signP + row.delta.pointsPips.toFixed(1), 13, 'right')}${C.reset}`
+      `${C.dim}${pad(row.date1.forward.toFixed(pair.quoteDecimals), 14, 'right')}${C.reset}` +
+      `${C.bold}${pad(row.date2.forward.toFixed(pair.quoteDecimals), 14, 'right')}${C.reset}` +
+      `${deltaOutColor}${pad(signO + row.delta.outright.toFixed(pair.quoteDecimals), 13, 'right')}${C.reset}` +
+      `${pad(row.date1.points.toFixed(pair.pipDecimals), 12, 'right')}` +
+      `${pad(row.date2.points.toFixed(pair.pipDecimals), 12, 'right')}` +
+      `${deltaPtsColor}${C.bold}${pad(signP + row.delta.pointsPips.toFixed(pair.pipDecimals), 13, 'right')}${C.reset}`
     );
   }
   console.log(`${C.dim}${'-'.repeat(93)}${C.reset}\n`);
@@ -174,13 +238,14 @@ async function runCompare(pairKey, date1, date2, noXccy) {
 
 async function runBroken(pairKey, tradeDate, targetSettlement, noXccy) {
   printBanner();
-  console.log(`${C.dim}Pricing Broken-Date FX Forward (FXFA) for ${pairKey}...${C.reset}\n`);
+  const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+  console.log(`${C.dim}Pricing Fixed Forward / Broken Date for ${pair.name}...${C.reset}\n`);
 
   const res = await calculateBrokenDateForward(pairKey, tradeDate, targetSettlement, { applyXccy: !noXccy });
 
   console.log(`${C.white}${C.bold}PAIR: ${C.amber}${res.pair}${C.reset}`);
   console.log(`${C.white}TRADE DATE: ${C.cyan}${res.tradeDate}${C.reset}  -->  ${C.white}SPOT DATE: ${C.cyan}${res.spotDate}${C.reset}`);
-  console.log(`${C.white}CUSTOM SETTLEMENT DATE: ${C.amber}${C.bold}${res.maturityDate}${C.reset} (${C.white}${res.days} calendar days${C.reset})`);
+  console.log(`${C.white}FIXED SETTLEMENT DATE: ${C.amber}${C.bold}${res.maturityDate}${C.reset} (${C.white}${res.days} calendar days${C.reset})`);
   console.log(`${C.dim}${'-'.repeat(60)}${C.reset}`);
   console.log(`${C.white}SPOT MID:                 ${C.bold}${res.spot}${C.reset}`);
   console.log(`${C.white}INTERPOLATED BASE RATE:   ${C.cyan}${res.baseRate.toFixed(3)}%${C.reset}`);
@@ -193,7 +258,8 @@ async function runBroken(pairKey, tradeDate, targetSettlement, noXccy) {
 
 async function runHistory(pairKey, tenor, from, to) {
   printBanner();
-  console.log(`${C.dim}Retrieving historical ${tenor} forward rates for ${pairKey} from ${from} to ${to}...${C.reset}\n`);
+  const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+  console.log(`${C.dim}Retrieving historical ${tenor} forward rates for ${pair.name} from ${from} to ${to}...${C.reset}\n`);
 
   const data = await getTenorHistory(pairKey, tenor, from, to, 14);
 
@@ -211,9 +277,9 @@ async function runHistory(pairKey, tenor, from, to) {
     const ptsColor = p.points >= 0 ? C.green : C.red;
     console.log(
       `${C.cyan}${pad(p.date, 12)}${C.reset}` +
-      `${pad(p.spot.toFixed(PAIRS[pairKey].quoteDecimals), 12, 'right')}` +
-      `${C.bold}${pad(p.forward.toFixed(PAIRS[pairKey].quoteDecimals), 15, 'right')}${C.reset}` +
-      `${ptsColor}${pad((p.points >= 0 ? '+' : '') + p.points.toFixed(1), 16, 'right')}${C.reset}` +
+      `${pad(p.spot.toFixed(pair.quoteDecimals), 12, 'right')}` +
+      `${C.bold}${pad(p.forward.toFixed(pair.quoteDecimals), 15, 'right')}${C.reset}` +
+      `${ptsColor}${pad((p.points >= 0 ? '+' : '') + p.points.toFixed(pair.pipDecimals), 16, 'right')}${C.reset}` +
       `${pad(p.rateDiff.toFixed(2) + '%', 14, 'right')}`
     );
   }
@@ -223,7 +289,9 @@ async function runHistory(pairKey, tenor, from, to) {
 async function main() {
   const options = parseArgs();
   try {
-    if (options.compare) {
+    if (options.window) {
+      await runWindow(options.pair, options.date, options.window[0], options.window[1], options.direction, options.notional, options.noXccy);
+    } else if (options.compare) {
       await runCompare(options.pair, options.compare[0], options.compare[1], options.noXccy);
     } else if (options.broken) {
       await runBroken(options.pair, options.date, options.broken, options.noXccy);
