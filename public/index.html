@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>FX FORWARD PRO | Interbank CIP &amp; Window Forward Analytics</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20261027_4">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -154,56 +157,152 @@
 
           <!-- Right: Pricing Results & Parity Card -->
           <div class="fxfa-card results-card">
-            <h2 class="card-heading" id="pricer-result-heading">WINDOW FORWARD (FLEXIBLE DELIVERY) PRICING</h2>
-            
-            <div class="metrics-grid" id="fxfa-metrics">
-              <div class="metric-box">
-                <div class="metric-label" id="lbl-metric-days">WINDOW DURATION</div>
-                <div class="metric-value" id="res-days">99 days</div>
-                <div class="metric-sub" id="res-spot-date">Spot: 2026-08-27</div>
-              </div>
-              <div class="metric-box">
-                <div class="metric-label">SPOT RATE</div>
-                <div class="metric-value highlight" id="res-spot">0.856600</div>
-                <div class="metric-sub" id="res-spot-sub">Bid: 0.8565 / Ask: 0.8567</div>
-              </div>
-              <div class="metric-box">
-                <div class="metric-label" id="lbl-metric-pts">WINDOW SWAP POINTS</div>
-                <div class="metric-value" id="res-points">-21.6 pips</div>
-                <div class="metric-sub" id="res-ann-prm">Discount</div>
-              </div>
-              <div class="metric-box primary-result">
-                <div class="metric-label" id="lbl-metric-rate">GUARANTEED WINDOW RATE</div>
-                <div class="metric-value amber-bold" id="res-outright">0.854437</div>
-                <div class="metric-sub" id="res-sub-desc">Executable Anytime in Window</div>
+            <div class="card-heading-box">
+              <h2 class="card-heading" id="pricer-result-heading">INTERBANK FORWARD PRICING (BID / ASK)</h2>
+              <div class="pricing-meta-pills">
+                <span class="meta-pill" id="pill-spot">Spot: <strong id="res-spot">0.856600</strong></span>
+                <span class="meta-pill" id="pill-settle">Settle: <strong id="res-spot-date">2026-08-27</strong> (<span id="res-days">99d</span>)</span>
+                <span class="meta-pill" id="pill-structure"><strong id="win-curve-structure">DISCOUNT</strong></span>
               </div>
             </div>
 
-            <!-- Breakdown for Window Forward -->
-            <div class="decomposition-box" id="window-decomposition">
-              <div class="decomp-row">
-                <span>Curve Term Structure:</span>
-                <span id="win-curve-structure" class="rate-val">DISCOUNT (Downward Sloping)</span>
+            <!-- TWO-WAY INTERBANK DEALING BOARD (BID / ASK) -->
+            <div class="two-way-pricing-board">
+              <!-- BID SIDE -->
+              <div class="two-way-card bid-card" id="card-fwd-bid">
+                <div class="two-way-header">
+                  <span class="badge-role bid-role">CLIENT SELLS LHS (EUR)</span>
+                  <span class="badge-type">BANK BUYS @ BID</span>
+                </div>
+                <div class="rate-display">
+                  <span class="two-way-rate green-rate" id="res-fwd-bid">0.854321</span>
+                </div>
+                <div class="two-way-sub">
+                  <span>Swap Points (Bid):</span>
+                  <strong id="res-pts-bid" class="negative">-22.8 pips</strong>
+                </div>
               </div>
-              <div class="decomp-row">
-                <span>Window Start Rate (02/11/26):</span>
-                <span id="win-start-rate" class="rate-val">Bid: 0.854321 | Ask: 0.854437 (-22.2 pips)</span>
+
+              <!-- ASK SIDE -->
+              <div class="two-way-card ask-card" id="card-fwd-ask">
+                <div class="two-way-header">
+                  <span class="badge-role ask-role">CLIENT BUYS LHS (EUR)</span>
+                  <span class="badge-type">BANK SELLS @ ASK</span>
+                </div>
+                <div class="rate-display">
+                  <span class="two-way-rate amber-rate" id="res-fwd-ask">0.854437</span>
+                </div>
+                <div class="two-way-sub">
+                  <span>Swap Points (Ask):</span>
+                  <strong id="res-pts-ask" class="negative">-21.6 pips</strong>
+                </div>
               </div>
-              <div class="decomp-row">
-                <span>Window End Rate (09/02/27):</span>
-                <span id="win-end-rate" class="rate-val">Bid: 0.851071 | Ask: 0.851206 (-54.6 pips)</span>
+            </div>
+
+            <!-- MID & SPREAD STRIP -->
+            <div class="mid-spread-strip">
+              <div class="strip-item">
+                <span class="strip-lbl">FORWARD MID:</span>
+                <strong id="res-fwd-mid" class="strip-val">0.854379</strong>
               </div>
-              <div class="decomp-row highlight-row">
-                <span>Conservative Pricing Pillar:</span>
-                <span id="win-worst-date" class="rate-val highlight">Window Start (02/11/26 - Highest Ask)</span>
+              <div class="strip-item">
+                <span class="strip-lbl">TOTAL SPREAD:</span>
+                <strong id="res-fwd-spread" class="strip-val highlight">1.16 pips</strong>
               </div>
-              <div class="decomp-row">
-                <span>Flexibility Carry Cost vs End Date:</span>
-                <span id="win-carry-cost" class="rate-val">32.4 pips (£3,241.00 GBP)</span>
+              <div class="strip-item">
+                <span class="strip-lbl">MID SWAP PTS:</span>
+                <strong id="res-points" class="strip-val">-22.2 pips</strong>
               </div>
-              <div class="decomp-row total">
-                <span>Guaranteed Settlement Cashflow:</span>
-                <span id="win-cashflow" class="rate-val highlight">£854,437.00 GBP for €1,000,000.00 EUR</span>
+              <div class="strip-item">
+                <span class="strip-lbl">ANNUALIZED:</span>
+                <strong id="res-ann-prm" class="strip-val">-1.42% Ann.</strong>
+              </div>
+            </div>
+
+            <!-- CLIENT DEALING EXECUTION HIGHLIGHT (BASED ON CHOSEN LHS/RHS DIRECTION) -->
+            <div class="client-execution-banner" id="client-exec-banner">
+              <div class="exec-left">
+                <div class="exec-pill" id="lbl-metric-rate">CLIENT EXECUTABLE RATE</div>
+                <div class="exec-rate-wrap">
+                  <span class="exec-rate highlight" id="res-outright">0.854437</span>
+                  <span class="exec-desc" id="res-sub-desc">Guaranteed Rate for Window Execution</span>
+                </div>
+              </div>
+              <div class="exec-right">
+                <div class="exec-deal-label" id="res-deal-direction">Client BUYS EUR (LHS) @ Bank ASK</div>
+                <div class="exec-cashflow-box">
+                  <span class="cashflow-lbl">Settlement Cashflow:</span>
+                  <strong class="cashflow-val highlight" id="res-cashflow">£854,437.00 GBP for €1,000,000.00 EUR</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Breakdown for Window Forward: Side-by-Side Start vs End Boundaries -->
+            <div class="window-boundary-container" id="window-decomposition">
+              <div class="boundary-header">
+                <span>WINDOW CORRIDOR INTERBANK BOUNDARIES</span>
+                <span class="boundary-sub">Worst-case interbank carry boundary for client flexibility</span>
+              </div>
+              
+              <div class="boundary-cards-grid">
+                <!-- Start Date Pillar -->
+                <div class="boundary-card" id="card-boundary-start">
+                  <div class="boundary-card-top">
+                    <span class="boundary-name">WINDOW START</span>
+                    <span class="boundary-date" id="win-start-date-lbl">2026-11-02 (67d)</span>
+                  </div>
+                  <div class="boundary-rate-row">
+                    <span>Forward Bid:</span>
+                    <strong class="green-text" id="win-start-bid">0.854321</strong>
+                  </div>
+                  <div class="boundary-rate-row">
+                    <span>Forward Ask:</span>
+                    <strong class="amber-text" id="win-start-ask">0.854437</strong>
+                  </div>
+                  <div class="boundary-rate-row">
+                    <span>Forward Mid:</span>
+                    <span id="win-start-mid">0.854378</span>
+                  </div>
+                  <div class="boundary-rate-row">
+                    <span>Swap Points:</span>
+                    <span id="win-start-pts" class="negative">-22.2 pips</span>
+                  </div>
+                </div>
+
+                <!-- End Date Pillar -->
+                <div class="boundary-card" id="card-boundary-end">
+                  <div class="boundary-card-top">
+                    <span class="boundary-name">WINDOW END (EXPIRY)</span>
+                    <span class="boundary-date" id="win-end-date-lbl">2027-02-09 (166d)</span>
+                  </div>
+                  <div class="boundary-rate-row">
+                    <span>Forward Bid:</span>
+                    <strong class="green-text" id="win-end-bid">0.851071</strong>
+                  </div>
+                  <div class="boundary-rate-row">
+                    <span>Forward Ask:</span>
+                    <strong class="amber-text" id="win-end-ask">0.851206</strong>
+                  </div>
+                  <div class="boundary-rate-row">
+                    <span>Forward Mid:</span>
+                    <span id="win-end-mid">0.851137</span>
+                  </div>
+                  <div class="boundary-rate-row">
+                    <span>Swap Points:</span>
+                    <span id="win-end-pts" class="negative">-54.6 pips</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="boundary-summary-box">
+                <div class="summary-line">
+                  <span>Conservative Pricing Pillar:</span>
+                  <strong class="highlight" id="win-worst-date">Window Start (2026-11-02 - Highest Ask)</strong>
+                </div>
+                <div class="summary-line">
+                  <span>Flexibility Carry Cost vs End Date:</span>
+                  <span id="win-carry-cost">32.4 pips (£3,241.00 GBP)</span>
+                </div>
               </div>
             </div>
 
@@ -211,11 +310,11 @@
             <div class="decomposition-box" id="fixed-decomposition" style="display: none;">
               <div class="decomp-row">
                 <span>Interbank Bid Forward:</span>
-                <span id="fix-bid-fwd" class="rate-val">0.854321</span>
+                <span id="fix-bid-fwd" class="rate-val green-text">0.854321</span>
               </div>
               <div class="decomp-row">
                 <span>Interbank Ask Forward:</span>
-                <span id="fix-ask-fwd" class="rate-val">0.854437</span>
+                <span id="fix-ask-fwd" class="rate-val amber-text">0.854437</span>
               </div>
               <div class="decomp-row">
                 <span>Mid Swap Points:</span>
@@ -229,10 +328,6 @@
                 <span>RHS Terms Zero Rate (ACT/365):</span>
                 <span id="res-quote-rate" class="rate-val">1.37%</span>
               </div>
-              <div class="decomp-row total">
-                <span>Settlement Cashflow:</span>
-                <span id="res-cashflow" class="rate-val highlight">£854,379.00 GBP</span>
-              </div>
             </div>
 
             <!-- Window Delivery Rate Corridor Table -->
@@ -245,8 +340,8 @@
                       <th>DATE</th>
                       <th class="text-right">DAYS</th>
                       <th class="text-right">SWAP PTS</th>
-                      <th class="text-right">INTERBANK BID</th>
-                      <th class="text-right">INTERBANK ASK</th>
+                      <th class="text-right">FORWARD BID</th>
+                      <th class="text-right">FORWARD ASK</th>
                     </tr>
                   </thead>
                   <tbody id="window-schedule-tbody"></tbody>
@@ -447,7 +542,7 @@
     </footer>
   </div>
 
-  <script src="engine.js"></script>
-  <script src="app.js"></script>
+  <script src="engine.js?v=20261027_4"></script>
+  <script src="app.js?v=20261027_4"></script>
 </body>
 </html>
