@@ -112,6 +112,9 @@ const resSpotLhsPill = document.getElementById('res-spot-lhs-pill');
 const resSpotRhsPill = document.getElementById('res-spot-rhs-pill');
 const inputSpotLhs = document.getElementById('input-spot-lhs');
 const inputSpotRhs = document.getElementById('input-spot-rhs');
+const lblSpotSide = document.getElementById('lbl-spot-side');
+const bdItemLhs = document.getElementById('bd-item-lhs');
+const bdItemRhs = document.getElementById('bd-item-rhs');
 const resDealSpot = document.getElementById('res-deal-spot');
 const resDealPoints = document.getElementById('res-deal-points');
 const fixSpotBid = document.getElementById('fix-spot-bid');
@@ -336,18 +339,72 @@ function applyPreset(preset) {
   if (preset.winEnd) fxfaWindowEnd.value = preset.winEnd;
 
   frdDateInput.value = preset.date;
+  updateSpotUI(ACTIVE_PAIR, preset.date, fxfaDirection ? fxfaDirection.value : 'RHS', preset.spot ? preset.spot.toString() : null, false);
   modeWindowBtn.click();
   switchTab('pricer');
 }
 
-// Spot Reset Button
-fxfaResetSpotBtn.addEventListener('click', async () => {
-  const pair = fxfaPairSelect.value;
-  const asOf = fxfaAsofDate.value;
-  if (typeof CIP_CLIENT !== 'undefined') {
-    const s = CIP_CLIENT.computeLadder(pair, asOf).spot.mid;
-    fxfaSpotInput.value = s;
+/**
+ * Dynamically synchronize the Spot Rate input, the breakdown (LHS Bid vs RHS Ask),
+ * the active side indicator, and the top terminal banner across pair and direction changes.
+ */
+function updateSpotUI(pairKey, asOfDate, direction, rawInputVal = null, forceReset = false) {
+  const pairMeta = getPairMeta(pairKey);
+  const isLHS = (direction === 'LHS' || direction === 'SELL_LHS' || direction === 'SELL');
+  const decimals = pairMeta.quoteDecimals || 5;
+  const spreadPips = (pairMeta.typicalSpreadPips && pairMeta.typicalSpreadPips['1M']) ? pairMeta.typicalSpreadPips['1M'] : 0.4;
+  const halfSpread = (spreadPips * 0.5) * pairMeta.pipSize;
+
+  let spotVal = null;
+  if (!forceReset && rawInputVal != null && rawInputVal !== '') {
+    const clean = rawInputVal.toString().trim().replace(',', '.');
+    if (!isNaN(parseFloat(clean)) && parseFloat(clean) > 0) {
+      spotVal = parseFloat(clean);
+    }
   }
+
+  // If force reset or no custom input, get market spot for this date & pair
+  if (spotVal == null) {
+    if (typeof CIP_CLIENT !== 'undefined') {
+      const def = CIP_CLIENT.getSpotBidAsk(pairKey, asOfDate, null, direction);
+      spotVal = def.mid;
+    } else {
+      spotVal = 1.0;
+    }
+    if (fxfaSpotInput) {
+      fxfaSpotInput.value = spotVal.toFixed(decimals);
+    }
+  }
+
+  const spotBid = parseFloat((spotVal - halfSpread).toFixed(decimals));
+  const spotAsk = parseFloat((spotVal + halfSpread).toFixed(decimals));
+  const spotMid = spotVal;
+
+  if (inputSpotLhs) inputSpotLhs.textContent = spotBid.toFixed(decimals);
+  if (inputSpotRhs) inputSpotRhs.textContent = spotAsk.toFixed(decimals);
+
+  if (bdItemLhs) bdItemLhs.classList.toggle('active-side', isLHS);
+  if (bdItemRhs) bdItemRhs.classList.toggle('active-side', !isLHS);
+
+  if (lblSpotSide) {
+    lblSpotSide.textContent = isLHS
+      ? `(LHS Bid: ${spotBid.toFixed(decimals)})`
+      : `(RHS Ask: ${spotAsk.toFixed(decimals)})`;
+  }
+
+  if (bannerSpotBid) bannerSpotBid.textContent = spotBid.toFixed(decimals);
+  if (bannerSpotAsk) bannerSpotAsk.textContent = spotAsk.toFixed(decimals);
+  if (bannerSpotMid) bannerSpotMid.textContent = `(Mid: ${spotMid.toFixed(decimals)})`;
+
+  return { spotMid, spotBid, spotAsk, isLHS };
+}
+
+// Spot Reset Button
+fxfaResetSpotBtn.addEventListener('click', () => {
+  const pair = fxfaPairSelect.value || ACTIVE_PAIR;
+  const asOf = fxfaAsofDate.value;
+  const dir = fxfaDirection.value;
+  updateSpotUI(pair, asOf, dir, null, true);
   calculatePricer();
 });
 
@@ -357,7 +414,8 @@ async function calculatePricer() {
   ACTIVE_PAIR = pair;
   syncAllSelects(ACTIVE_PAIR);
   const asOf = fxfaAsofDate.value;
-  const customSpot = fxfaSpotInput.value ? parseFloat(fxfaSpotInput.value) : null;
+  const rawSpotStr = fxfaSpotInput.value ? fxfaSpotInput.value.trim().replace(',', '.') : '';
+  const customSpot = rawSpotStr && !isNaN(parseFloat(rawSpotStr)) && parseFloat(rawSpotStr) > 0 ? parseFloat(rawSpotStr) : null;
   const applyXccy = fxfaXccyToggle.checked;
   const notional = parseFloat(fxfaNotional.value) || 1000000;
   const pairMeta = getPairMeta(pair);
@@ -368,6 +426,9 @@ async function calculatePricer() {
   // LHS = Client SELLS base / BUYS quote (Executed at Bank BID)
   // RHS = Client BUYS base / SELLS quote (Executed at Bank ASK)
   const isLHS = (direction === 'LHS' || direction === 'SELL_LHS' || direction === 'SELL');
+
+  // Immediately ensure spot breakdown reflects the current pair, date and direction
+  updateSpotUI(pair, asOf, direction, customSpot != null ? customSpot.toString() : null, false);
 
   if (PRICER_MODE === 'window') {
     // WINDOW FORWARD
@@ -397,12 +458,10 @@ async function calculatePricer() {
       if (!data) throw new Error('Could not calculate window forward');
 
       // Update spot inputs if empty
-      if (!fxfaSpotInput.value) fxfaSpotInput.value = data.spot;
+      if (!fxfaSpotInput.value) fxfaSpotInput.value = data.spot.toFixed(pairMeta.quoteDecimals);
 
-      // Update banner
-      bannerSpotBid.textContent = data.spotBid.toFixed(pairMeta.quoteDecimals);
-      bannerSpotAsk.textContent = data.spotAsk.toFixed(pairMeta.quoteDecimals);
-      bannerSpotMid.textContent = `(Mid: ${data.spot.toFixed(pairMeta.quoteDecimals)})`;
+      // Update banner & breakdown
+      updateSpotUI(pair, asOf, direction, customSpot != null ? customSpot.toString() : data.spot.toString(), false);
 
       // 1. Meta Pills & Spot LHS / RHS
       resSpot.textContent = data.spot.toFixed(pairMeta.quoteDecimals);
@@ -522,6 +581,8 @@ async function calculatePricer() {
       }
 
       if (!data) throw new Error('Could not calculate fixed forward');
+
+      updateSpotUI(pair, asOf, direction, customSpot != null ? customSpot.toString() : data.spot.toString(), false);
 
       resSpot.textContent = data.spot.toFixed(pairMeta.quoteDecimals);
       if (resSpotLhsPill) resSpotLhsPill.textContent = data.spotBid.toFixed(pairMeta.quoteDecimals);
@@ -925,17 +986,47 @@ commandInput.addEventListener('keydown', (e) => {
 goBtn.addEventListener('click', () => handleCommand(commandInput.value));
 
 // Change listeners
+let spotInputDebounceTimer = null;
+if (fxfaSpotInput) {
+  fxfaSpotInput.addEventListener('input', () => {
+    const pair = fxfaPairSelect.value || ACTIVE_PAIR;
+    const asOf = fxfaAsofDate.value;
+    const dir = fxfaDirection.value;
+    updateSpotUI(pair, asOf, dir, fxfaSpotInput.value, false);
+
+    clearTimeout(spotInputDebounceTimer);
+    spotInputDebounceTimer = setTimeout(() => {
+      calculatePricer();
+    }, 250);
+  });
+
+  fxfaSpotInput.addEventListener('change', () => {
+    const pair = fxfaPairSelect.value || ACTIVE_PAIR;
+    const asOf = fxfaAsofDate.value;
+    const dir = fxfaDirection.value;
+    updateSpotUI(pair, asOf, dir, fxfaSpotInput.value, false);
+    calculatePricer();
+  });
+}
+
 fxfaPairSelect.addEventListener('change', () => {
   ACTIVE_PAIR = fxfaPairSelect.value;
   syncAllSelects(ACTIVE_PAIR);
-  fxfaResetSpotBtn.click();
+  updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, null, true);
+  calculatePricer();
 });
+
 fxfaAsofDate.addEventListener('change', () => {
-  fxfaResetSpotBtn.click();
+  updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, null, true);
+  calculatePricer();
 });
+
 fxfaCalculateBtn.addEventListener('click', calculatePricer);
 fxfaXccyToggle.addEventListener('change', calculatePricer);
-fxfaDirection.addEventListener('change', calculatePricer);
+fxfaDirection.addEventListener('change', () => {
+  updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, fxfaSpotInput.value, false);
+  calculatePricer();
+});
 
 frdRefreshBtn.addEventListener('click', loadForwardLadder);
 frdPairSelect.addEventListener('change', () => {
