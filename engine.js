@@ -489,21 +489,24 @@ const CIP_CLIENT = (() => {
     let worstCaseDays;
     let windowPoints;
 
-    const isBuyLHS = (direction === 'BUY_LHS' || direction === 'BUY_BASE');
+    // Nomenclature:
+    // LHS = Client SELLS base / BUYS terms @ Bank BID
+    // RHS = Client BUYS base / SELLS terms @ Bank ASK
+    const isLHS = (direction === 'LHS' || direction === 'SELL_LHS' || direction === 'SELL_BASE' || direction === 'SELL');
 
-    if (isBuyLHS) {
-      windowRate = windowAsk;
-      worstCaseDate = (endFwd.forwardAsk >= startFwd.forwardAsk) ? windowEnd : windowStart;
-      worstCaseDays = (endFwd.forwardAsk >= startFwd.forwardAsk) ? endFwd.days : startFwd.days;
-      windowPoints = windowPointsAsk;
-    } else {
+    if (isLHS) {
       windowRate = windowBid;
       worstCaseDate = (endFwd.forwardBid <= startFwd.forwardBid) ? windowEnd : windowStart;
       worstCaseDays = (endFwd.forwardBid <= startFwd.forwardBid) ? endFwd.days : startFwd.days;
       windowPoints = windowPointsBid;
+    } else {
+      windowRate = windowAsk;
+      worstCaseDate = (endFwd.forwardAsk >= startFwd.forwardAsk) ? windowEnd : windowStart;
+      worstCaseDays = (endFwd.forwardAsk >= startFwd.forwardAsk) ? endFwd.days : startFwd.days;
+      windowPoints = windowPointsAsk;
     }
 
-    const benchmarkEndRate = isBuyLHS ? endFwd.forwardAsk : endFwd.forwardBid;
+    const benchmarkEndRate = isLHS ? endFwd.forwardBid : endFwd.forwardAsk;
     const carryCostPips = Math.abs(windowRate - benchmarkEndRate) / pair.pipSize;
     const carryCostCash = Math.abs(windowRate - benchmarkEndRate) * notional;
     const totalSettlementCash = notional * windowRate;
@@ -545,15 +548,17 @@ const CIP_CLIENT = (() => {
     return {
       pair: pair.symbol,
       pairName: pair.name,
-      lhs: pair.lhs,
-      rhs: pair.rhs,
+      base: pair.base,
+      quote: pair.quote,
+      lhs: pair.base,
+      rhs: pair.quote,
       tradeDate: asOf,
       spotDate: startFwd.spotDate,
       spot: startFwd.spot,
       spotBid: startFwd.spotBid,
       spotAsk: startFwd.spotAsk,
-      direction: isBuyLHS ? 'BUY_LHS' : 'SELL_LHS',
-      directionLabel: isBuyLHS ? `Client BUYS ${pair.lhs} (LHS) / SELLS ${pair.rhs} (RHS)` : `Client SELLS ${pair.lhs} (LHS) / BUYS ${pair.rhs} (RHS)`,
+      direction: isLHS ? 'LHS' : 'RHS',
+      directionLabel: isLHS ? `LHS — Client SELLS ${pair.base} / BUYS ${pair.quote} (Bid)` : `RHS — Client BUYS ${pair.base} / SELLS ${pair.quote} (Ask)`,
       windowStart,
       windowEnd,
       windowDurationDays: endFwd.days - startFwd.days,
@@ -589,13 +594,17 @@ const CIP_CLIENT = (() => {
       windowCost: {
         pips: parseFloat(carryCostPips.toFixed(pair.pipDecimals)),
         cashflow: parseFloat(carryCostCash.toFixed(2)),
-        currency: pair.rhs
+        currency: pair.quote
       },
       notional: {
+        baseAmount: notional,
+        baseCurrency: pair.base,
+        settlementCashflow: parseFloat(totalSettlementCash.toFixed(2)),
+        quoteCurrency: pair.quote,
         lhsAmount: notional,
-        lhsCurrency: pair.lhs,
+        lhsCurrency: pair.base,
         rhsSettlementCashflow: parseFloat(totalSettlementCash.toFixed(2)),
-        rhsCurrency: pair.rhs
+        rhsCurrency: pair.quote
       },
       windowSchedule
     };
