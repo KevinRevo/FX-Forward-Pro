@@ -1,17 +1,16 @@
 /**
  * Institutional Interbank FX Forward Client Application
  * Features:
- * - Bidirectional pair quoting (EUR:USD <-> USD:EUR, etc.)
- * - Tenor ladder display
- * - Historical curve comparison
- * - Historical time-series
- * - Fixed & Window Forward pricing with conservative interbank delivery boundary
+ * - Standard pairs with explicit LHS (Base) and RHS (Terms/Quote)
+ * - Exact Spot Rate lookup and custom override
+ * - Window Flexible Forward & Fixed Forward pricing with conservative interbank boundary
+ * - Tenor ladder display and historical curve comparison
  */
 
 let AVAILABLE_PAIRS = [];
-let ACTIVE_PAIR = 'EURUSD';
+let ACTIVE_PAIR = 'EURGBP';
 let CURRENT_LADDER_DATA = null;
-let PRICER_MODE = 'fixed'; // 'fixed' or 'window'
+let PRICER_MODE = 'window'; // default to window forward
 
 // DOM Elements
 const commandInput = document.getElementById('command-input');
@@ -21,18 +20,18 @@ const presetsContainer = document.getElementById('presets-container');
 
 // Banner elements
 const activePairName = document.getElementById('active-pair-name');
-const bannerInvertBtn = document.getElementById('banner-invert-btn');
+const bannerLhsRhsBadge = document.getElementById('banner-lhs-rhs-badge');
 const bannerSpotBid = document.getElementById('banner-spot-bid');
 const bannerSpotAsk = document.getElementById('banner-spot-ask');
 const bannerSpotMid = document.getElementById('banner-spot-mid');
-const bannerSpotChange = document.getElementById('banner-spot-change');
+const bannerLhsCode = document.getElementById('banner-lhs-code');
+const bannerRhsCode = document.getElementById('banner-rhs-code');
 const bannerBaseRate = document.getElementById('banner-base-rate');
 const bannerQuoteRate = document.getElementById('banner-quote-rate');
 const bannerXccyBasis = document.getElementById('banner-xccy-basis');
 
 // FRD elements
 const frdPairSelect = document.getElementById('frd-pair-select');
-const frdInvertBtn = document.getElementById('frd-invert-btn');
 const frdDateInput = document.getElementById('frd-date-input');
 const frdXccyToggle = document.getElementById('frd-xccy-toggle');
 const frdRefreshBtn = document.getElementById('frd-refresh-btn');
@@ -41,7 +40,6 @@ const frdTableBody = document.getElementById('frd-table-body');
 
 // COMP elements
 const compPairSelect = document.getElementById('comp-pair-select');
-const compInvertBtn = document.getElementById('comp-invert-btn');
 const compDate1 = document.getElementById('comp-date1');
 const compDate2 = document.getElementById('comp-date2');
 const compRunBtn = document.getElementById('comp-run-btn');
@@ -52,7 +50,6 @@ const compLegendDate2 = document.getElementById('comp-legend-date2');
 
 // HIST elements
 const histPairSelect = document.getElementById('hist-pair-select');
-const histInvertBtn = document.getElementById('hist-invert-btn');
 const histTenorSelect = document.getElementById('hist-tenor-select');
 const histStartDate = document.getElementById('hist-start-date');
 const histEndDate = document.getElementById('hist-end-date');
@@ -69,8 +66,9 @@ const rowWindowDates = document.getElementById('row-window-dates');
 const rowDirection = document.getElementById('row-direction');
 
 const fxfaPairSelect = document.getElementById('fxfa-pair-select');
-const fxfaInvertBtn = document.getElementById('fxfa-invert-btn');
 const fxfaAsofDate = document.getElementById('fxfa-asof-date');
+const fxfaSpotInput = document.getElementById('fxfa-spot-input');
+const fxfaResetSpotBtn = document.getElementById('fxfa-reset-spot-btn');
 const fxfaSettleDate = document.getElementById('fxfa-settle-date');
 const fxfaWindowStart = document.getElementById('fxfa-window-start');
 const fxfaWindowEnd = document.getElementById('fxfa-window-end');
@@ -79,7 +77,7 @@ const fxfaNotional = document.getElementById('fxfa-notional');
 const fxfaXccyToggle = document.getElementById('fxfa-xccy-toggle');
 const fxfaCalculateBtn = document.getElementById('fxfa-calculate-btn');
 
-// PRICER output elements
+// PRICER outputs
 const pricerResultHeading = document.getElementById('pricer-result-heading');
 const lblMetricDays = document.getElementById('lbl-metric-days');
 const lblMetricPts = document.getElementById('lbl-metric-pts');
@@ -87,16 +85,11 @@ const lblMetricRate = document.getElementById('lbl-metric-rate');
 const resDays = document.getElementById('res-days');
 const resSpotDate = document.getElementById('res-spot-date');
 const resSpot = document.getElementById('res-spot');
+const resSpotSub = document.getElementById('res-spot-sub');
 const resPoints = document.getElementById('res-points');
 const resAnnPrm = document.getElementById('res-ann-prm');
 const resOutright = document.getElementById('res-outright');
 const resSubDesc = document.getElementById('res-sub-desc');
-
-const fixedDecomposition = document.getElementById('fixed-decomposition');
-const resBaseRate = document.getElementById('res-base-rate');
-const resQuoteRate = document.getElementById('res-quote-rate');
-const resXccyBasis = document.getElementById('res-xccy-basis');
-const resCashflow = document.getElementById('res-cashflow');
 
 const windowDecomposition = document.getElementById('window-decomposition');
 const winCurveStructure = document.getElementById('win-curve-structure');
@@ -108,38 +101,44 @@ const winCashflow = document.getElementById('win-cashflow');
 const windowScheduleBox = document.getElementById('window-schedule-box');
 const windowScheduleTbody = document.getElementById('window-schedule-tbody');
 
-const DEFAULT_PRESETS = [
+const fixedDecomposition = document.getElementById('fixed-decomposition');
+const fixBidFwd = document.getElementById('fix-bid-fwd');
+const fixAskFwd = document.getElementById('fix-ask-fwd');
+const fixMidPts = document.getElementById('fix-mid-pts');
+const resBaseRate = document.getElementById('res-base-rate');
+const resQuoteRate = document.getElementById('res-quote-rate');
+const resCashflow = document.getElementById('res-cashflow');
+
+const BENCHMARK_PRESETS = [
   {
-    id: 'fed-peak-vs-now',
-    title: 'Fed Peak Hikes (Oct 2023) vs Recent Neutral',
-    pair: 'EURUSD',
-    date1: '2023-10-15',
-    date2: '2024-09-15',
-    description: 'Compares peak US 5.5% policy rates with the onset of global monetary easing.'
+    id: 'eurgbp-benchmark',
+    title: 'EUR:GBP Benchmark (25/08/26 Spot 0.8566)',
+    pair: 'EURGBP',
+    date: '2026-08-25',
+    spot: 0.8566,
+    winStart: '2026-11-02',
+    winEnd: '2027-02-09',
+    description: 'Exact interbank comparison: Window 02/11/26 to 09/02/27 at Spot 0.8566.'
   },
   {
-    id: 'covid-crisis-vs-pre',
-    title: 'Pre-COVID (Oct 2019) vs COVID Shock (Apr 2020)',
+    id: 'fed-peak-2023',
+    title: 'EUR:USD Peak Rates (Oct 2023)',
     pair: 'EURUSD',
-    date1: '2019-10-15',
-    date2: '2020-04-15',
-    description: 'Shows dramatic cross-currency basis blowout and emergency rate cuts to zero.'
-  },
-  {
-    id: 'eur-parity-trough',
-    title: 'EUR Parity Trough (Sep 2022) vs Oct 2023',
-    pair: 'EURUSD',
-    date1: '2022-09-27',
-    date2: '2023-10-15',
-    description: 'Spot below 0.96 vs rapid ECB rate hiking cycle.'
+    date: '2023-10-15',
+    spot: 1.05216,
+    winStart: '2023-11-15',
+    winEnd: '2024-01-15',
+    description: 'Peak US 5.5% policy rates, forward points in premium.'
   },
   {
     id: 'usdjpy-divergence',
-    title: 'BoJ NIRP (Jun 2022) vs Peak Rates (Oct 2023)',
+    title: 'USD:JPY Rate Divergence (Oct 2023)',
     pair: 'USDJPY',
-    date1: '2022-06-15',
-    date2: '2023-10-15',
-    description: 'Massive forward discount on USD/JPY due to US-Japan interest rate divergence.'
+    date: '2023-10-15',
+    spot: 149.50,
+    winStart: '2023-11-15',
+    winEnd: '2024-01-15',
+    description: 'Massive forward discount due to US-Japan interest rate gap.'
   }
 ];
 
@@ -151,26 +150,10 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// Invert Direction Helper
-function invertCurrentPair() {
-  const current = AVAILABLE_PAIRS.find(p => p.symbol === ACTIVE_PAIR) || AVAILABLE_PAIRS[0];
-  const targetInvKey = `${current.quote}${current.base}`;
-
-  if (AVAILABLE_PAIRS.some(p => p.symbol === targetInvKey)) {
-    ACTIVE_PAIR = targetInvKey;
-  } else {
-    // If not in array, default flip
-    ACTIVE_PAIR = targetInvKey;
-  }
-
-  syncAllSelects(ACTIVE_PAIR);
-
-  // Reload active tab
-  const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'frd';
-  if (activeTab === 'frd') loadForwardLadder();
-  else if (activeTab === 'comp') loadComparison();
-  else if (activeTab === 'hist') loadHistory();
-  else if (activeTab === 'pricer') calculatePricer();
+function getPairMeta(symbol) {
+  return AVAILABLE_PAIRS.find(p => p.symbol === symbol) || AVAILABLE_PAIRS[0] || {
+    symbol: 'EURGBP', lhs: 'EUR', rhs: 'GBP', quoteDecimals: 6, pipDecimals: 2, pipSize: 0.0001
+  };
 }
 
 function syncAllSelects(pairSymbol) {
@@ -178,11 +161,43 @@ function syncAllSelects(pairSymbol) {
     if (select) select.value = pairSymbol;
   });
 
-  const p = AVAILABLE_PAIRS.find(item => item.symbol === pairSymbol);
+  const p = getPairMeta(pairSymbol);
   if (p) {
-    bannerInvertBtn.textContent = `⇄ INVERT (${p.quote}/${p.base})`;
+    activePairName.textContent = `${p.name}`;
+    bannerLhsRhsBadge.textContent = `LHS: ${p.lhs} | RHS: ${p.rhs}`;
+    bannerLhsCode.textContent = p.lhs;
+    bannerRhsCode.textContent = p.rhs;
+
+    // Update direction options in Pricer
+    fxfaDirection.innerHTML = `
+      <option value="BUY_LHS" selected>Client BUYS ${p.lhs} (LHS) / SELLS ${p.rhs} (RHS)</option>
+      <option value="SELL_LHS">Client SELLS ${p.lhs} (LHS) / BUYS ${p.rhs} (RHS)</option>
+    `;
   }
 }
+
+// Mode Selection (Fixed vs Window Forward)
+modeFixedBtn.addEventListener('click', () => {
+  PRICER_MODE = 'fixed';
+  modeFixedBtn.classList.add('active');
+  modeWindowBtn.classList.remove('active');
+  rowFixedDate.style.display = 'block';
+  rowWindowDates.style.display = 'none';
+  rowDirection.style.display = 'none';
+  pricerResultHeading.textContent = 'FIXED FORWARD (SINGLE MATURITY) PRICING';
+  calculatePricer();
+});
+
+modeWindowBtn.addEventListener('click', () => {
+  PRICER_MODE = 'window';
+  modeWindowBtn.classList.add('active');
+  modeFixedBtn.classList.remove('active');
+  rowFixedDate.style.display = 'none';
+  rowWindowDates.style.display = 'grid';
+  rowDirection.style.display = 'block';
+  pricerResultHeading.textContent = 'WINDOW FORWARD (FLEXIBLE DELIVERY) PRICING';
+  calculatePricer();
+});
 
 // Tab Navigation
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -202,33 +217,11 @@ function switchTab(tabId) {
     p.classList.toggle('active', p.id === `tab-${tabId}`);
   });
 
-  if (tabId === 'comp') loadComparison();
+  if (tabId === 'pricer') calculatePricer();
+  else if (tabId === 'frd') loadForwardLadder();
+  else if (tabId === 'comp') loadComparison();
   else if (tabId === 'hist') loadHistory();
-  else if (tabId === 'pricer') calculatePricer();
 }
-
-// Mode Selection (Fixed Forward vs Window Forward)
-modeFixedBtn.addEventListener('click', () => {
-  PRICER_MODE = 'fixed';
-  modeFixedBtn.classList.add('active');
-  modeWindowBtn.classList.remove('active');
-  rowFixedDate.style.display = 'block';
-  rowWindowDates.style.display = 'none';
-  rowDirection.style.display = 'none';
-  pricerResultHeading.textContent = 'FIXED FORWARD PRICING & PARITY';
-  calculatePricer();
-});
-
-modeWindowBtn.addEventListener('click', () => {
-  PRICER_MODE = 'window';
-  modeWindowBtn.classList.add('active');
-  modeFixedBtn.classList.remove('active');
-  rowFixedDate.style.display = 'none';
-  rowWindowDates.style.display = 'grid';
-  rowDirection.style.display = 'block';
-  pricerResultHeading.textContent = 'WINDOW FORWARD (FLEXIBLE DELIVERY) PRICING';
-  calculatePricer();
-});
 
 // Initialize Pairs and Presets
 async function init() {
@@ -251,20 +244,16 @@ async function init() {
       AVAILABLE_PAIRS.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.symbol;
-        opt.textContent = `${p.base}:${p.quote} (${p.name})`;
+        opt.textContent = `${p.name} (LHS: ${p.lhs} | RHS: ${p.rhs})`;
         select.appendChild(opt);
       });
     });
 
-    let presets = DEFAULT_PRESETS;
-    try {
-      const presetsRes = await fetch('/api/presets');
-      if (presetsRes.ok) presets = await presetsRes.json();
-    } catch (e) {}
-    renderPresets(presets);
-
+    renderPresets(BENCHMARK_PRESETS);
     syncAllSelects(ACTIVE_PAIR);
-    await loadForwardLadder();
+
+    // Initial load
+    await calculatePricer();
   } catch (err) {
     console.error('Initialization error:', err);
   }
@@ -287,14 +276,161 @@ function renderPresets(presets) {
 function applyPreset(preset) {
   ACTIVE_PAIR = preset.pair;
   syncAllSelects(ACTIVE_PAIR);
-  compDate1.value = preset.date1;
-  compDate2.value = preset.date2;
-  frdDateInput.value = preset.date2;
 
-  switchTab('comp');
+  fxfaAsofDate.value = preset.date;
+  if (preset.spot) fxfaSpotInput.value = preset.spot;
+  if (preset.winStart) fxfaWindowStart.value = preset.winStart;
+  if (preset.winEnd) fxfaWindowEnd.value = preset.winEnd;
+
+  frdDateInput.value = preset.date;
+  modeWindowBtn.click();
+  switchTab('pricer');
 }
 
-// 1. FRD: Tenor Forward Ladder
+// Spot Reset Button
+fxfaResetSpotBtn.addEventListener('click', async () => {
+  const pair = fxfaPairSelect.value;
+  const asOf = fxfaAsofDate.value;
+  if (typeof CIP_CLIENT !== 'undefined') {
+    const s = CIP_CLIENT.computeLadder(pair, asOf).spot.mid;
+    fxfaSpotInput.value = s;
+  }
+  calculatePricer();
+});
+
+// 1. PRICER: Fixed Forward & Window Forward Calculator
+async function calculatePricer() {
+  const pair = fxfaPairSelect.value || ACTIVE_PAIR;
+  ACTIVE_PAIR = pair;
+  syncAllSelects(ACTIVE_PAIR);
+  const asOf = fxfaAsofDate.value;
+  const customSpot = fxfaSpotInput.value ? parseFloat(fxfaSpotInput.value) : null;
+  const applyXccy = fxfaXccyToggle.checked;
+  const notional = parseFloat(fxfaNotional.value) || 1000000;
+  const pairMeta = getPairMeta(pair);
+
+  if (PRICER_MODE === 'window') {
+    // WINDOW FORWARD
+    fixedDecomposition.style.display = 'none';
+    windowDecomposition.style.display = 'block';
+    windowScheduleBox.style.display = 'block';
+    lblMetricDays.textContent = 'WINDOW DURATION';
+    lblMetricPts.textContent = 'WINDOW POINTS';
+    lblMetricRate.textContent = 'GUARANTEED WINDOW RATE';
+    resSubDesc.textContent = 'Interbank Guaranteed Execution Rate';
+
+    const winStart = fxfaWindowStart.value;
+    const winEnd = fxfaWindowEnd.value;
+    const direction = fxfaDirection.value;
+
+    try {
+      let data = null;
+      try {
+        const spotParam = customSpot ? `&spot=${customSpot}` : '';
+        const url = `/api/window-forward?pair=${pair}&asOf=${asOf}&windowStart=${winStart}&windowEnd=${winEnd}&direction=${direction}&notional=${notional}&applyXccy=${applyXccy}${spotParam}`;
+        const res = await fetch(url);
+        if (res.ok) data = await res.json();
+      } catch (e) {}
+
+      if (!data && typeof CIP_CLIENT !== 'undefined') {
+        data = CIP_CLIENT.windowForward(pair, asOf, winStart, winEnd, direction, { applyXccy, notional, spot: customSpot });
+      }
+
+      if (!data) throw new Error('Could not calculate window forward');
+
+      // Update spot inputs if empty
+      if (!fxfaSpotInput.value) fxfaSpotInput.value = data.spot;
+
+      // Update banner
+      bannerSpotBid.textContent = data.spotBid.toFixed(pairMeta.quoteDecimals);
+      bannerSpotAsk.textContent = data.spotAsk.toFixed(pairMeta.quoteDecimals);
+      bannerSpotMid.textContent = `(${data.spot.toFixed(pairMeta.quoteDecimals)})`;
+
+      // Update metrics
+      resDays.textContent = `${data.windowDurationDays} days`;
+      resSpotDate.textContent = `Spot Date: ${data.spotDate}`;
+      resSpot.textContent = data.spot.toFixed(pairMeta.quoteDecimals);
+      resSpotSub.textContent = `Bid: ${data.spotBid.toFixed(pairMeta.quoteDecimals)} / Ask: ${data.spotAsk.toFixed(pairMeta.quoteDecimals)}`;
+
+      const ptsSign = data.windowPoints >= 0 ? '+' : '';
+      resPoints.textContent = `${ptsSign}${data.windowPoints.toFixed(pairMeta.pipDecimals)} pips`;
+      resAnnPrm.textContent = data.curveStructure.includes('PREMIUM') ? 'Premium' : 'Discount';
+      resOutright.textContent = data.windowRate.toFixed(pairMeta.quoteDecimals);
+
+      winCurveStructure.textContent = data.curveStructure;
+      winStartRate.textContent = `Bid: ${data.startDatePricing.bid.toFixed(pairMeta.quoteDecimals)} | Ask: ${data.startDatePricing.ask.toFixed(pairMeta.quoteDecimals)} (${data.startDatePricing.pointsMid >= 0 ? '+' : ''}${data.startDatePricing.pointsMid.toFixed(pairMeta.pipDecimals)} pips)`;
+      winEndRate.textContent = `Bid: ${data.endDatePricing.bid.toFixed(pairMeta.quoteDecimals)} | Ask: ${data.endDatePricing.ask.toFixed(pairMeta.quoteDecimals)} (${data.endDatePricing.pointsMid >= 0 ? '+' : ''}${data.endDatePricing.pointsMid.toFixed(pairMeta.pipDecimals)} pips)`;
+      winWorstDate.textContent = `${data.worstCaseDate} (${data.worstCaseDays} days from spot)`;
+      winCarryCost.textContent = `${data.windowCost.pips.toFixed(pairMeta.pipDecimals)} pips (${data.windowCost.cashflow.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${data.windowCost.currency})`;
+      winCashflow.textContent = `${data.notional.rhsSettlementCashflow.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${data.notional.rhsCurrency} for ${data.notional.lhsAmount.toLocaleString('en-US')} ${data.notional.lhsCurrency}`;
+
+      // Corridor table
+      windowScheduleTbody.innerHTML = '';
+      data.windowSchedule.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${row.date}</strong></td>
+          <td class="text-right">${row.days}</td>
+          <td class="text-right ${row.swapPoints >= 0 ? 'positive' : 'negative'}">${row.swapPoints >= 0 ? '+' : ''}${row.swapPoints.toFixed(pairMeta.pipDecimals)}</td>
+          <td class="text-right">${row.forwardBid.toFixed(pairMeta.quoteDecimals)}</td>
+          <td class="text-right highlight"><strong>${row.forwardAsk.toFixed(pairMeta.quoteDecimals)}</strong></td>
+        `;
+        windowScheduleTbody.appendChild(tr);
+      });
+    } catch (err) {
+      console.error('Window Forward pricing error:', err);
+    }
+  } else {
+    // FIXED FORWARD
+    fixedDecomposition.style.display = 'block';
+    windowDecomposition.style.display = 'none';
+    windowScheduleBox.style.display = 'none';
+    lblMetricDays.textContent = 'DAYS TO SETTLE';
+    lblMetricPts.textContent = 'SWAP POINTS';
+    lblMetricRate.textContent = 'MID FORWARD RATE';
+    resSubDesc.textContent = 'Fixed Maturity Settlement Price';
+
+    const settle = fxfaSettleDate.value;
+
+    try {
+      let data = null;
+      try {
+        const spotParam = customSpot ? `&spot=${customSpot}` : '';
+        const res = await fetch(`/api/broken-date?pair=${pair}&asOf=${asOf}&settlement=${settle}&applyXccy=${applyXccy}${spotParam}`);
+        if (res.ok) data = await res.json();
+      } catch (e) {}
+
+      if (!data && typeof CIP_CLIENT !== 'undefined') {
+        data = CIP_CLIENT.brokenDate(pair, asOf, settle, applyXccy, customSpot);
+      }
+
+      if (!data) throw new Error('Could not calculate fixed forward');
+
+      resDays.textContent = `${data.days} days`;
+      resSpotDate.textContent = `Spot Date: ${data.spotDate}`;
+      resSpot.textContent = data.spot.toFixed(pairMeta.quoteDecimals);
+      resSpotSub.textContent = `Bid: ${data.spotBid.toFixed(pairMeta.quoteDecimals)} / Ask: ${data.spotAsk.toFixed(pairMeta.quoteDecimals)}`;
+
+      const ptsSign = data.swapPoints >= 0 ? '+' : '';
+      resPoints.textContent = `${ptsSign}${data.swapPoints.toFixed(pairMeta.pipDecimals)} pips`;
+      resAnnPrm.textContent = `${data.annPremiumPct >= 0 ? '+' : ''}${data.annPremiumPct.toFixed(2)}% Ann.`;
+      resOutright.textContent = data.outrightForward.toFixed(pairMeta.quoteDecimals);
+
+      fixBidFwd.textContent = data.forwardBid.toFixed(pairMeta.quoteDecimals);
+      fixAskFwd.textContent = data.forwardAsk.toFixed(pairMeta.quoteDecimals);
+      fixMidPts.textContent = `${ptsSign}${data.swapPoints.toFixed(pairMeta.pipDecimals)} pips`;
+      resBaseRate.textContent = `${data.baseRate.toFixed(2)}%`;
+      resQuoteRate.textContent = `${data.quoteRate.toFixed(2)}%`;
+
+      const totalCash = notional * data.outrightForward;
+      resCashflow.textContent = `${totalCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${data.rhs}`;
+    } catch (err) {
+      console.error('Fixed Forward pricing error:', err);
+    }
+  }
+}
+
+// 2. FRD: Tenor Forward Ladder
 async function loadForwardLadder() {
   const pair = frdPairSelect.value || ACTIVE_PAIR;
   ACTIVE_PAIR = pair;
@@ -318,33 +454,18 @@ async function loadForwardLadder() {
     if (!data) throw new Error('Could not compute forward ladder');
 
     CURRENT_LADDER_DATA = data;
-    updateBanner(data);
     renderLadderTable(data);
   } catch (err) {
     frdTableBody.innerHTML = `<tr><td colspan="14" class="text-center negative">Error: ${err.message}</td></tr>`;
   }
 }
 
-function updateBanner(data) {
-  activePairName.textContent = `${data.pairName} (${data.pair})`;
-  bannerSpotBid.textContent = data.spot.bid;
-  bannerSpotAsk.textContent = data.spot.ask;
-  bannerSpotMid.textContent = `(${data.spot.mid})`;
-
-  bannerBaseRate.textContent = `${data.baseCcy.benchmark} ${data.ladder[0].baseRate}%`;
-  bannerQuoteRate.textContent = `${data.quoteCcy.benchmark} ${data.ladder[0].quoteRate}%`;
-  bannerXccyBasis.textContent = data.applyXccy ? `${data.ladder[6].xccyBps} bps (3M)` : 'OFF (0.0 bps)';
-}
-
 function renderLadderTable(data) {
   frdTableBody.innerHTML = '';
-  const pair = AVAILABLE_PAIRS.find(p => p.symbol === data.pair) || { quoteDecimals: 5, pipDecimals: 1 };
+  const pairMeta = getPairMeta(data.pair);
 
   data.ladder.forEach(row => {
     const tr = document.createElement('tr');
-    tr.dataset.tenor = row.tenor;
-    tr.dataset.settlement = row.settlementDate;
-
     const ptsClass = row.swapPoints.mid >= 0 ? 'positive' : 'negative';
     const ptsSign = row.swapPoints.mid >= 0 ? '+' : '';
     const fwdClass = row.outrightForward.mid >= data.spot.mid ? 'positive' : 'negative';
@@ -357,21 +478,19 @@ function renderLadderTable(data) {
       <td class="text-right rate-val">${row.quoteRate.toFixed(2)}%</td>
       <td class="text-right">${(row.quoteRate - row.baseRate).toFixed(2)}%</td>
       <td class="text-right">${row.xccyBps.toFixed(1)}</td>
-      <td class="text-right ${ptsClass}">${ptsSign}${row.swapPoints.bid.toFixed(pair.pipDecimals)}</td>
-      <td class="text-right highlight ${ptsClass}"><strong>${ptsSign}${row.swapPoints.mid.toFixed(pair.pipDecimals)}</strong></td>
-      <td class="text-right ${ptsClass}">${ptsSign}${row.swapPoints.ask.toFixed(pair.pipDecimals)}</td>
-      <td class="text-right">${row.outrightForward.bid.toFixed(pair.quoteDecimals)}</td>
-      <td class="text-right highlight ${fwdClass}"><strong>${row.outrightForward.mid.toFixed(pair.quoteDecimals)}</strong></td>
-      <td class="text-right">${row.outrightForward.ask.toFixed(pair.quoteDecimals)}</td>
+      <td class="text-right ${ptsClass}">${ptsSign}${row.swapPoints.bid.toFixed(pairMeta.pipDecimals)}</td>
+      <td class="text-right highlight ${ptsClass}"><strong>${ptsSign}${row.swapPoints.mid.toFixed(pairMeta.pipDecimals)}</strong></td>
+      <td class="text-right ${ptsClass}">${ptsSign}${row.swapPoints.ask.toFixed(pairMeta.pipDecimals)}</td>
+      <td class="text-right">${row.outrightForward.bid.toFixed(pairMeta.quoteDecimals)}</td>
+      <td class="text-right highlight ${fwdClass}"><strong>${row.outrightForward.mid.toFixed(pairMeta.quoteDecimals)}</strong></td>
+      <td class="text-right">${row.outrightForward.ask.toFixed(pairMeta.quoteDecimals)}</td>
       <td class="text-right ${ptsClass}">${row.annPremiumPct.toFixed(2)}%</td>
     `;
 
-    // Click row to jump into Pricer
     tr.addEventListener('click', () => {
       fxfaPairSelect.value = data.pair;
       fxfaAsofDate.value = data.tradeDate;
       fxfaSettleDate.value = row.settlementDate;
-      PRICER_MODE = 'fixed';
       modeFixedBtn.click();
       switchTab('pricer');
     });
@@ -380,7 +499,7 @@ function renderLadderTable(data) {
   });
 }
 
-// 2. COMP: Curve Comparison
+// 3. COMP: Curve Comparison
 async function loadComparison() {
   const pair = compPairSelect.value || ACTIVE_PAIR;
   ACTIVE_PAIR = pair;
@@ -414,7 +533,7 @@ async function loadComparison() {
 
 function renderComparisonTable(data) {
   compTableBody.innerHTML = '';
-  const pair = AVAILABLE_PAIRS.find(p => p.symbol === data.pair) || { quoteDecimals: 5, pipDecimals: 1 };
+  const pairMeta = getPairMeta(data.pair);
 
   data.comparisons.forEach(row => {
     const tr = document.createElement('tr');
@@ -426,12 +545,12 @@ function renderComparisonTable(data) {
     tr.innerHTML = `
       <td><strong>${row.tenor}</strong></td>
       <td class="text-right">${row.days}</td>
-      <td class="text-right" style="color: var(--bbg-amber);">${row.date1.forward.toFixed(pair.quoteDecimals)}</td>
-      <td class="text-right" style="color: var(--bbg-cyan); font-weight: 700;">${row.date2.forward.toFixed(pair.quoteDecimals)}</td>
-      <td class="text-right ${dOutClass}"><strong>${dOutSign}${row.delta.outright.toFixed(pair.quoteDecimals)}</strong></td>
-      <td class="text-right">${row.date1.points.toFixed(pair.pipDecimals)}</td>
-      <td class="text-right">${row.date2.points.toFixed(pair.pipDecimals)}</td>
-      <td class="text-right ${dPtsClass}"><strong>${dPtsSign}${row.delta.pointsPips.toFixed(pair.pipDecimals)}</strong></td>
+      <td class="text-right" style="color: var(--bbg-amber);">${row.date1.forward.toFixed(pairMeta.quoteDecimals)}</td>
+      <td class="text-right" style="color: var(--bbg-cyan); font-weight: 700;">${row.date2.forward.toFixed(pairMeta.quoteDecimals)}</td>
+      <td class="text-right ${dOutClass}"><strong>${dOutSign}${row.delta.outright.toFixed(pairMeta.quoteDecimals)}</strong></td>
+      <td class="text-right">${row.date1.points.toFixed(pairMeta.pipDecimals)}</td>
+      <td class="text-right">${row.date2.points.toFixed(pairMeta.pipDecimals)}</td>
+      <td class="text-right ${dPtsClass}"><strong>${dPtsSign}${row.delta.pointsPips.toFixed(pairMeta.pipDecimals)}</strong></td>
       <td class="text-right">${row.date1.rateDiff.toFixed(2)}%</td>
       <td class="text-right">${row.date2.rateDiff.toFixed(2)}%</td>
       <td class="text-right">${row.delta.rateDiffBps > 0 ? '+' : ''}${row.delta.rateDiffBps} bp</td>
@@ -510,7 +629,7 @@ function renderComparisonChart(data) {
   `;
 }
 
-// 3. HIST: Tenor Time Series
+// 4. HIST: Tenor Time Series
 async function loadHistory() {
   const pair = histPairSelect.value || ACTIVE_PAIR;
   ACTIVE_PAIR = pair;
@@ -518,8 +637,9 @@ async function loadHistory() {
   const tenor = histTenorSelect.value || '3M';
   const start = histStartDate.value;
   const end = histEndDate.value;
+  const pairMeta = getPairMeta(pair);
 
-  histChartTitle.textContent = `${pair} ${tenor} FORWARD VS SPOT OVER TIME`;
+  histChartTitle.textContent = `${pairMeta.name} ${tenor} FORWARD VS SPOT OVER TIME`;
 
   try {
     let data = null;
@@ -622,134 +742,18 @@ function renderHistoryCharts(data) {
   `;
 }
 
-// 4. PRICER: Fixed Forward & Window Forward Calculator
-async function calculatePricer() {
-  const pair = fxfaPairSelect.value || ACTIVE_PAIR;
-  ACTIVE_PAIR = pair;
-  syncAllSelects(ACTIVE_PAIR);
-  const asOf = fxfaAsofDate.value;
-  const applyXccy = fxfaXccyToggle.checked;
-  const notional = parseFloat(fxfaNotional.value) || 1000000;
-
-  if (PRICER_MODE === 'fixed') {
-    // FIXED FORWARD
-    fixedDecomposition.style.display = 'block';
-    windowDecomposition.style.display = 'none';
-    windowScheduleBox.style.display = 'none';
-    lblMetricDays.textContent = 'DAYS TO SETTLE';
-    lblMetricPts.textContent = 'SWAP POINTS';
-    lblMetricRate.textContent = 'OUTRIGHT FORWARD RATE';
-    resSubDesc.textContent = 'Guaranteed Contract Rate';
-
-    const settle = fxfaSettleDate.value;
-
-    try {
-      let data = null;
-      try {
-        const res = await fetch(`/api/broken-date?pair=${pair}&asOf=${asOf}&settlement=${settle}&applyXccy=${applyXccy}`);
-        if (res.ok) data = await res.json();
-      } catch (e) {}
-
-      if (!data && typeof CIP_CLIENT !== 'undefined') {
-        data = CIP_CLIENT.brokenDate(pair, asOf, settle, applyXccy);
-      }
-
-      if (!data) throw new Error('Could not calculate fixed forward');
-
-      resDays.textContent = `${data.days} days`;
-      resSpotDate.textContent = `Spot Date: ${data.spotDate}`;
-      resSpot.textContent = data.spot;
-      resPoints.textContent = `${data.swapPoints >= 0 ? '+' : ''}${data.swapPoints} pips`;
-      resAnnPrm.textContent = `${data.annPremiumPct >= 0 ? '+' : ''}${data.annPremiumPct}% Ann.`;
-      resOutright.textContent = data.outrightForward;
-
-      resBaseRate.textContent = `${data.baseRate}%`;
-      resQuoteRate.textContent = `${data.quoteRate}%`;
-      resXccyBasis.textContent = `${data.xccyBps} bps`;
-
-      const totalCashflow = notional * data.outrightForward;
-      resCashflow.textContent = `${totalCashflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    } catch (err) {
-      console.error('Fixed Forward pricing error:', err);
-    }
-  } else {
-    // WINDOW FORWARD
-    fixedDecomposition.style.display = 'none';
-    windowDecomposition.style.display = 'block';
-    windowScheduleBox.style.display = 'block';
-    lblMetricDays.textContent = 'WINDOW DURATION';
-    lblMetricPts.textContent = 'WINDOW POINTS';
-    lblMetricRate.textContent = 'GUARANTEED WINDOW RATE';
-    resSubDesc.textContent = 'Executable Anytime in Window';
-
-    const winStart = fxfaWindowStart.value;
-    const winEnd = fxfaWindowEnd.value;
-    const direction = fxfaDirection.value;
-
-    try {
-      let data = null;
-      try {
-        const url = `/api/window-forward?pair=${pair}&asOf=${asOf}&windowStart=${winStart}&windowEnd=${winEnd}&direction=${direction}&notional=${notional}&applyXccy=${applyXccy}`;
-        const res = await fetch(url);
-        if (res.ok) data = await res.json();
-      } catch (e) {}
-
-      if (!data && typeof CIP_CLIENT !== 'undefined') {
-        data = CIP_CLIENT.windowForward(pair, asOf, winStart, winEnd, direction, { applyXccy, notional });
-      }
-
-      if (!data) throw new Error('Could not calculate window forward');
-
-      resDays.textContent = `${data.windowDurationDays} days`;
-      resSpotDate.textContent = `Open: ${data.windowStart} | Exp: ${data.windowEnd}`;
-      resSpot.textContent = data.spot;
-      resPoints.textContent = `${data.windowPoints >= 0 ? '+' : ''}${data.windowPoints} pips`;
-      resAnnPrm.textContent = `${data.directionLabel}`;
-      resOutright.textContent = data.windowRate;
-
-      winCurveStructure.textContent = data.curveStructure;
-      winStartRate.textContent = `${data.startDatePricing.outright} (${data.startDatePricing.points >= 0 ? '+' : ''}${data.startDatePricing.points} pips)`;
-      winEndRate.textContent = `${data.endDatePricing.outright} (${data.endDatePricing.points >= 0 ? '+' : ''}${data.endDatePricing.points} pips)`;
-      winWorstDate.textContent = `${data.worstCaseDate} (${data.worstCaseDays} days from spot)`;
-      winCarryCost.textContent = `${data.windowCost.pips} pips (${data.windowCost.cashflow.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${data.windowCost.currency})`;
-      winCashflow.textContent = `${data.notional.settlementCashflow.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${data.notional.quoteCurrency}`;
-
-      // Populate schedule table
-      windowScheduleTbody.innerHTML = '';
-      data.windowSchedule.forEach(row => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${row.date}</td>
-          <td class="text-right">${row.days}</td>
-          <td class="text-right ${row.swapPoints >= 0 ? 'positive' : 'negative'}">${row.swapPoints >= 0 ? '+' : ''}${row.swapPoints.toFixed(1)}</td>
-          <td class="text-right highlight"><strong>${row.outrightForward.toFixed(5)}</strong></td>
-        `;
-        windowScheduleTbody.appendChild(tr);
-      });
-    } catch (err) {
-      console.error('Window Forward pricing error:', err);
-    }
-  }
-}
-
 // Command Parser
 function handleCommand(cmd) {
   cmd = cmd.trim().toUpperCase();
   if (!cmd) return;
 
   if (cmd === 'HELP' || cmd === 'F1') {
-    alert(`TERMINAL COMMANDS:
-• EURUSD, USDEUR, GBPUSD, USDJPY, AUDUSD - Select pair & quoting direction
-• FRD [YYYY-MM-DD]       - Forward ladder (e.g. EURUSD FRD 2023-10-15)
-• COMP [Date1] [Date2]   - Compare two forward curves (e.g. EURUSD COMP 2023-10-15 2024-09-15)
-• HIST [Tenor]           - Time series chart (e.g. EURUSD HIST 3M)
-• PRICER                 - Open Fixed & Window Forward Calculator
-• INVERT                 - Toggle quoting direction (e.g. EUR:USD <-> USD:EUR)`);
-    return;
-  }
-
-  if (cmd === 'INVERT' || cmd === 'REVERSE') {
-    invertCurrentPair();
+    alert(`COMMANDS:
+• EURGBP, EURUSD, GBPUSD, USDJPY - Select pair
+• PRICER                 - Window & Fixed Forward Calculator
+• FRD [YYYY-MM-DD]       - Tenor Forward ladder
+• COMP [Date1] [Date2]   - Compare two forward curves
+• HIST [Tenor]           - Time series chart`);
     return;
   }
 
@@ -759,24 +763,7 @@ function handleCommand(cmd) {
   if (AVAILABLE_PAIRS.some(p => p.symbol === potentialPair)) {
     ACTIVE_PAIR = potentialPair;
     syncAllSelects(ACTIVE_PAIR);
-
-    const fn = parts[1] || 'FRD';
-    if (fn === 'FRD' || fn === 'LADDER') {
-      if (parts[2]) frdDateInput.value = parts[2];
-      switchTab('frd');
-      loadForwardLadder();
-    } else if (fn === 'COMP') {
-      if (parts[2]) compDate1.value = parts[2];
-      if (parts[3]) compDate2.value = parts[3];
-      switchTab('comp');
-    } else if (fn === 'HIST') {
-      if (parts[2]) histTenorSelect.value = parts[2];
-      switchTab('hist');
-    } else if (fn === 'PRICER' || fn === 'FXFA') {
-      switchTab('pricer');
-    } else {
-      loadForwardLadder();
-    }
+    calculatePricer();
   }
 }
 
@@ -785,14 +772,19 @@ commandInput.addEventListener('keydown', (e) => {
 });
 goBtn.addEventListener('click', () => handleCommand(commandInput.value));
 
-// Invert Buttons
-bannerInvertBtn.addEventListener('click', invertCurrentPair);
-frdInvertBtn.addEventListener('click', invertCurrentPair);
-compInvertBtn.addEventListener('click', invertCurrentPair);
-histInvertBtn.addEventListener('click', invertCurrentPair);
-fxfaInvertBtn.addEventListener('click', invertCurrentPair);
+// Change listeners
+fxfaPairSelect.addEventListener('change', () => {
+  ACTIVE_PAIR = fxfaPairSelect.value;
+  syncAllSelects(ACTIVE_PAIR);
+  fxfaResetSpotBtn.click();
+});
+fxfaAsofDate.addEventListener('change', () => {
+  fxfaResetSpotBtn.click();
+});
+fxfaCalculateBtn.addEventListener('click', calculatePricer);
+fxfaXccyToggle.addEventListener('change', calculatePricer);
+fxfaDirection.addEventListener('change', calculatePricer);
 
-// Listeners for Selects & Controls
 frdRefreshBtn.addEventListener('click', loadForwardLadder);
 frdPairSelect.addEventListener('change', () => {
   ACTIVE_PAIR = frdPairSelect.value;
@@ -816,73 +808,13 @@ histPairSelect.addEventListener('change', () => {
 });
 histTenorSelect.addEventListener('change', loadHistory);
 
-fxfaCalculateBtn.addEventListener('click', calculatePricer);
-fxfaPairSelect.addEventListener('change', () => {
-  ACTIVE_PAIR = fxfaPairSelect.value;
-  syncAllSelects(ACTIVE_PAIR);
-  calculatePricer();
-});
-fxfaXccyToggle.addEventListener('change', calculatePricer);
-fxfaDirection.addEventListener('change', calculatePricer);
-
-// Quick Date buttons
-document.querySelectorAll('.quick-date-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    let d = btn.dataset.date;
-    if (d === 'today') d = new Date().toISOString().split('T')[0];
-    frdDateInput.value = d;
-    loadForwardLadder();
-  });
-});
-
-// Export CSV
-frdExportCsv.addEventListener('click', () => {
-  if (!CURRENT_LADDER_DATA) return;
-  const rows = [
-    ['Tenor', 'Settlement Date', 'Days', 'Base Rate %', 'Quote Rate %', 'XCCY (bp)', 'Swap Points Mid', 'Outright Forward Mid', 'Annualized %']
-  ];
-  CURRENT_LADDER_DATA.ladder.forEach(r => {
-    rows.push([
-      r.tenor,
-      r.settlementDate,
-      r.days,
-      r.baseRate,
-      r.quoteRate,
-      r.xccyBps,
-      r.swapPoints.mid,
-      r.outrightForward.mid,
-      r.annPremiumPct
-    ]);
-  });
-  const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement('a');
-  link.setAttribute('href', encodedUri);
-  link.setAttribute('download', `${CURRENT_LADDER_DATA.pair}_FRD_${CURRENT_LADDER_DATA.tradeDate}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-});
-
-// Keyboard function keys (F1 - F5)
+// Keyboard function keys
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'F1') {
-    e.preventDefault();
-    handleCommand('HELP');
-  } else if (e.key === 'F2') {
-    e.preventDefault();
-    switchTab('frd');
-  } else if (e.key === 'F3') {
-    e.preventDefault();
-    switchTab('comp');
-  } else if (e.key === 'F4') {
-    e.preventDefault();
-    switchTab('hist');
-  } else if (e.key === 'F5') {
-    if (e.ctrlKey) return;
-    e.preventDefault();
-    switchTab('pricer');
-  }
+  if (e.key === 'F1') { e.preventDefault(); handleCommand('HELP'); }
+  else if (e.key === 'F2') { e.preventDefault(); switchTab('pricer'); }
+  else if (e.key === 'F3') { e.preventDefault(); switchTab('frd'); }
+  else if (e.key === 'F4') { e.preventDefault(); switchTab('comp'); }
+  else if (e.key === 'F5') { if (e.ctrlKey) return; e.preventDefault(); switchTab('hist'); }
 });
 
 init();
