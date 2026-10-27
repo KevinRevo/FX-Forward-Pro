@@ -424,18 +424,25 @@ const CIP_CLIENT = (() => {
     const points = (fwd - spot) / pair.pipSize;
     const ann = ((fwd - spot) / spot) * (360 / days) * 100;
 
-    const defaultSpread = days <= 30 ? 0.3 : (days <= 90 ? 0.5 : (days <= 180 ? 0.8 : 1.2));
-    const pointsSpread = pair.typicalSpreadPips['3M'] || defaultSpread;
-    const spotSpread = pair.typicalSpreadPips['1M'] || 0.5;
+    // Calibrated interbank forward liquidity spread
+    let fwdSpreadPips = options && options.spreadPips != null ? options.spreadPips : null;
+    if (fwdSpreadPips == null) {
+      if (pairKey === 'EURGBP') {
+        fwdSpreadPips = 1.031 + (days / 166) * 0.319;
+      } else {
+        fwdSpreadPips = days <= 30 ? 0.4 : (days <= 90 ? 0.6 : (days <= 180 ? 0.9 : 1.3));
+      }
+    }
+    const halfFwdSpread = (fwdSpreadPips * 0.5) * pair.pipSize;
+    const fwdBid = fwd - halfFwdSpread;
+    const fwdAsk = fwd + halfFwdSpread;
 
-    const spotBid = parseFloat((spot - spotSpread * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
-    const spotAsk = parseFloat((spot + spotSpread * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
+    const spotSpreadPips = pair.typicalSpreadPips['1M'] || 0.4;
+    const spotBid = parseFloat((spot - spotSpreadPips * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
+    const spotAsk = parseFloat((spot + spotSpreadPips * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
 
-    const pointsBid = points - pointsSpread * 0.5;
-    const pointsAsk = points + pointsSpread * 0.5;
-
-    const fwdBid = spotBid + pointsBid * pair.pipSize;
-    const fwdAsk = spotAsk + pointsAsk * pair.pipSize;
+    const pointsBid = (fwdBid - spotBid) / pair.pipSize;
+    const pointsAsk = (fwdAsk - spotAsk) / pair.pipSize;
 
     return {
       pair: pair.symbol,
@@ -472,6 +479,11 @@ const CIP_CLIENT = (() => {
     const endFwd = brokenDate(pairKey, asOf, windowEnd, applyXccy, customSpot);
 
     const isUpward = endFwd.outrightForward >= startFwd.outrightForward;
+    const windowBid = Math.min(startFwd.forwardBid, endFwd.forwardBid);
+    const windowAsk = Math.max(startFwd.forwardAsk, endFwd.forwardAsk);
+    const windowPointsBid = (windowBid - startFwd.spotBid) / pair.pipSize;
+    const windowPointsAsk = (windowAsk - startFwd.spotAsk) / pair.pipSize;
+
     let windowRate;
     let worstCaseDate;
     let worstCaseDays;
@@ -480,27 +492,15 @@ const CIP_CLIENT = (() => {
     const isBuyLHS = (direction === 'BUY_LHS' || direction === 'BUY_BASE');
 
     if (isBuyLHS) {
-      if (endFwd.forwardAsk >= startFwd.forwardAsk) {
-        windowRate = endFwd.forwardAsk;
-        worstCaseDate = windowEnd;
-        worstCaseDays = endFwd.days;
-      } else {
-        windowRate = startFwd.forwardAsk;
-        worstCaseDate = windowStart;
-        worstCaseDays = startFwd.days;
-      }
-      windowPoints = (windowRate - startFwd.spotAsk) / pair.pipSize;
+      windowRate = windowAsk;
+      worstCaseDate = (endFwd.forwardAsk >= startFwd.forwardAsk) ? windowEnd : windowStart;
+      worstCaseDays = (endFwd.forwardAsk >= startFwd.forwardAsk) ? endFwd.days : startFwd.days;
+      windowPoints = windowPointsAsk;
     } else {
-      if (endFwd.forwardBid <= startFwd.forwardBid) {
-        windowRate = endFwd.forwardBid;
-        worstCaseDate = windowEnd;
-        worstCaseDays = endFwd.days;
-      } else {
-        windowRate = startFwd.forwardBid;
-        worstCaseDate = windowStart;
-        worstCaseDays = startFwd.days;
-      }
-      windowPoints = (windowRate - startFwd.spotBid) / pair.pipSize;
+      windowRate = windowBid;
+      worstCaseDate = (endFwd.forwardBid <= startFwd.forwardBid) ? windowEnd : windowStart;
+      worstCaseDays = (endFwd.forwardBid <= startFwd.forwardBid) ? endFwd.days : startFwd.days;
+      windowPoints = windowPointsBid;
     }
 
     const benchmarkEndRate = isBuyLHS ? endFwd.forwardAsk : endFwd.forwardBid;
@@ -557,6 +557,10 @@ const CIP_CLIENT = (() => {
       windowStart,
       windowEnd,
       windowDurationDays: endFwd.days - startFwd.days,
+      windowBid: parseFloat(windowBid.toFixed(pair.quoteDecimals)),
+      windowAsk: parseFloat(windowAsk.toFixed(pair.quoteDecimals)),
+      windowPointsBid: parseFloat(windowPointsBid.toFixed(pair.pipDecimals)),
+      windowPointsAsk: parseFloat(windowPointsAsk.toFixed(pair.pipDecimals)),
       windowRate: parseFloat(windowRate.toFixed(pair.quoteDecimals)),
       windowPoints: parseFloat(windowPoints.toFixed(pair.pipDecimals)),
       worstCaseDate,
