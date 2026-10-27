@@ -50,10 +50,11 @@ function parseArgs() {
   const options = {
     pair: 'EURUSD',
     date: new Date().toISOString().split('T')[0],
+    spot: null,
     compare: null,
     broken: null,
     window: null,
-    direction: 'BUY_BASE',
+    direction: 'BUY_LHS',
     notional: 1000000,
     history: null,
     from: '2023-01-01',
@@ -65,6 +66,8 @@ function parseArgs() {
     const raw = args[i].toUpperCase().replace(/[\/:]/g, '');
     if (PAIRS[raw]) {
       options.pair = raw;
+    } else if (args[i] === '--spot' && args[i + 1]) {
+      options.spot = parseFloat(args[++i]);
     } else if (args[i] === '--date' && args[i + 1]) {
       options.date = args[++i];
     } else if (args[i] === '--compare' && args[i + 1] && args[i + 2]) {
@@ -75,7 +78,7 @@ function parseArgs() {
       options.window = [args[++i], args[++i]];
     } else if (args[i] === '--direction' && args[i + 1]) {
       const d = args[++i].toUpperCase();
-      options.direction = d.startsWith('S') ? 'SELL_BASE' : 'BUY_BASE';
+      options.direction = (d.includes('SELL') || d.includes('RHS')) && !d.includes('BUY') ? 'SELL_LHS' : 'BUY_LHS';
     } else if (args[i] === '--notional' && args[i + 1]) {
       options.notional = parseFloat(args[++i]);
     } else if (args[i] === '--history') {
@@ -146,14 +149,15 @@ async function runLadder(pairKey, dateStr, noXccy) {
   console.log(`${C.dim}Tip: Run with reverse direction (e.g. USDEUR) or --window YYYY-MM-DD YYYY-MM-DD for window forward.${C.reset}\n`);
 }
 
-async function runWindow(pairKey, tradeDate, winStart, winEnd, direction, notional, noXccy) {
+async function runWindow(pairKey, tradeDate, winStart, winEnd, direction, notional, noXccy, customSpot) {
   printBanner();
   const pair = PAIRS[pairKey] || PAIRS.EURUSD;
   console.log(`${C.dim}Pricing Window Forward (Flexible Delivery) for ${pair.name}...${C.reset}\n`);
 
   const res = await calculateWindowForward(pairKey, tradeDate, winStart, winEnd, direction, {
     applyXccy: !noXccy,
-    notional
+    notional,
+    spot: customSpot
   });
 
   console.log(`${C.white}${C.bold}PAIR: ${C.amber}${res.pairName} (${res.pair})${C.reset}`);
@@ -163,34 +167,36 @@ async function runWindow(pairKey, tradeDate, winStart, winEnd, direction, notion
   console.log(`${C.dim}${'-'.repeat(75)}${C.reset}`);
 
   console.log(`${C.white}Curve Structure:          ${C.cyan}${res.curveStructure}${C.reset}`);
-  console.log(`${C.white}Start Date Rate:          ${res.startDatePricing.outright} (${res.startDatePricing.points >= 0 ? '+' : ''}${res.startDatePricing.points} pips)`);
-  console.log(`${C.white}End Date Rate:            ${res.endDatePricing.outright} (${res.endDatePricing.points >= 0 ? '+' : ''}${res.endDatePricing.points} pips)`);
+  console.log(`${C.white}Start Date (${res.windowStart}):  Bid ${C.bold}${res.startDatePricing.bid}${C.reset} / Ask ${C.bold}${res.startDatePricing.ask}${C.reset} (Mid: ${res.startDatePricing.mid}, Points: ${res.startDatePricing.pointsMid} pips)`);
+  console.log(`${C.white}End Date (${res.windowEnd}):    Bid ${C.bold}${res.endDatePricing.bid}${C.reset} / Ask ${C.bold}${res.endDatePricing.ask}${C.reset} (Mid: ${res.endDatePricing.mid}, Points: ${res.endDatePricing.pointsMid} pips)`);
   console.log(`${C.white}Conservative Pillar:      ${C.amber}${res.worstCaseDate} (${res.worstCaseDays} days from spot)${C.reset}`);
   console.log(`${C.dim}${'-'.repeat(75)}${C.reset}`);
 
   console.log(`${C.amber}${C.bold}GUARANTEED WINDOW RATE:   ${res.windowRate}${C.reset}`);
   console.log(`${C.white}WINDOW POINTS:            ${res.windowPoints >= 0 ? C.green + '+' : C.red}${res.windowPoints} pips${C.reset}`);
   console.log(`${C.white}WINDOW CARRY PENALTY:     ${res.windowCost.pips} pips (${res.windowCost.cashflow.toLocaleString('en-US')} ${res.windowCost.currency})`);
-  console.log(`${C.white}SETTLEMENT CASHFLOW:      ${C.bold}${res.notional.settlementCashflow.toLocaleString('en-US')} ${res.notional.quoteCurrency}${C.reset} for ${res.notional.baseAmount.toLocaleString('en-US')} ${res.notional.baseCurrency}\n`);
+  console.log(`${C.white}SETTLEMENT CASHFLOW:      ${C.bold}${res.notional.rhsSettlementCashflow.toLocaleString('en-US')} ${res.notional.rhsCurrency}${C.reset} for ${res.notional.lhsAmount.toLocaleString('en-US')} ${res.notional.lhsCurrency}\n`);
 
   console.log(`${C.bgHeader}${C.amber}${C.bold}` +
     pad('WINDOW DATE', 14) +
     pad('DAYS', 6, 'right') +
+    pad('FORWARD BID', 16, 'right') +
+    pad('FORWARD ASK', 16, 'right') +
     pad('SWAP POINTS', 14, 'right') +
-    pad('OUTRIGHT RATE', 16, 'right') +
     `  ${C.reset}`
   );
-  console.log(`${C.dim}${'-'.repeat(54)}${C.reset}`);
+  console.log(`${C.dim}${'-'.repeat(68)}${C.reset}`);
 
   for (const s of res.windowSchedule) {
     console.log(
       `${pad(s.date, 14)}` +
       `${pad(s.days, 6, 'right')}` +
-      `${pad((s.swapPoints >= 0 ? '+' : '') + s.swapPoints.toFixed(1), 14, 'right')}` +
-      `${C.bold}${pad(s.outrightForward.toFixed(pair.quoteDecimals), 16, 'right')}${C.reset}`
+      `${pad(s.forwardBid.toFixed(pair.quoteDecimals), 16, 'right')}` +
+      `${pad(s.forwardAsk.toFixed(pair.quoteDecimals), 16, 'right')}` +
+      `${pad((s.swapPoints >= 0 ? '+' : '') + s.swapPoints.toFixed(1), 14, 'right')}`
     );
   }
-  console.log(`${C.dim}${'-'.repeat(54)}${C.reset}\n`);
+  console.log(`${C.dim}${'-'.repeat(68)}${C.reset}\n`);
 }
 
 async function runCompare(pairKey, date1, date2, noXccy) {
@@ -290,7 +296,7 @@ async function main() {
   const options = parseArgs();
   try {
     if (options.window) {
-      await runWindow(options.pair, options.date, options.window[0], options.window[1], options.direction, options.notional, options.noXccy);
+      await runWindow(options.pair, options.date, options.window[0], options.window[1], options.direction, options.notional, options.noXccy, options.spot);
     } else if (options.compare) {
       await runCompare(options.pair, options.compare[0], options.compare[1], options.noXccy);
     } else if (options.broken) {
