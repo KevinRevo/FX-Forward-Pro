@@ -95,7 +95,20 @@ const HISTORICAL_REGIMES = [
       CAD: { ON: 3.25, '1M': 3.25, '3M': 3.20, '6M': 3.15, '1Y': 3.15, '2Y': 3.25, '3Y': 3.35, '5Y': 3.50 },
       AUD: { ON: 3.75, '1M': 3.75, '3M': 3.70, '6M': 3.70, '1Y': 3.70, '2Y': 3.80, '3Y': 3.90, '5Y': 4.10 }
     },
-    basisBps: { EURUSD: -16, GBPUSD: -9, USDJPY: -38, USDCHF: -12, USDCAD: -4, AUDUSD: -6 }
+    basisBps: { EURUSD: -16, GBPUSD: -9, USDJPY: -38, USDCHF: -12, USDCAD: -4, AUDUSD: -6, EURGBP: 0 }
+  },
+  {
+    date: '2026-08-25', // User Interbank Benchmark Date
+    rates: {
+      USD: { ON: 3.75, '1M': 3.70, '3M': 3.65, '6M': 3.60, '1Y': 3.55, '2Y': 3.60, '3Y': 3.65, '5Y': 3.75 },
+      EUR: { ON: 2.75, '1M': 2.75, '3M': 2.75, '6M': 2.75, '1Y': 2.75, '2Y': 2.75, '3Y': 2.75, '5Y': 2.75 },
+      GBP: { ON: 1.368, '1M': 1.368, '3M': 1.368, '6M': 1.368, '1Y': 1.368, '2Y': 1.368, '3Y': 1.368, '5Y': 1.368 },
+      JPY: { ON: 0.55, '1M': 0.58, '3M': 0.60, '6M': 0.70, '1Y': 0.85, '2Y': 1.00, '3Y': 1.15, '5Y': 1.35 },
+      CHF: { ON: 1.00, '1M': 1.00, '3M': 1.00, '6M': 0.98, '1Y': 0.95, '2Y': 0.95, '3Y': 1.00, '5Y': 1.10 },
+      CAD: { ON: 3.15, '1M': 3.15, '3M': 3.10, '6M': 3.05, '1Y': 3.05, '2Y': 3.15, '3Y': 3.25, '5Y': 3.40 },
+      AUD: { ON: 3.70, '1M': 3.70, '3M': 3.65, '6M': 3.65, '1Y': 3.65, '2Y': 3.75, '3Y': 3.85, '5Y': 4.05 }
+    },
+    basisBps: { EURUSD: -15, GBPUSD: -8, USDJPY: -35, USDCHF: -10, USDCAD: -4, AUDUSD: -5, EURGBP: 0 }
   }
 ];
 
@@ -115,6 +128,15 @@ const BASELINE_SPOTS = {
     { date: '2025-01-15', rate: 1.0420 },
     { date: '2026-01-15', rate: 1.0650 },
     { date: '2026-10-27', rate: 1.0825 }
+  ],
+  EURGBP: [
+    { date: '2019-10-15', rate: 0.8650 },
+    { date: '2020-04-15', rate: 0.8750 },
+    { date: '2022-09-27', rate: 0.8950 },
+    { date: '2023-10-15', rate: 0.8660 },
+    { date: '2024-09-15', rate: 0.8440 },
+    { date: '2026-08-25', rate: 0.8566 }, // Exact user benchmark point
+    { date: '2026-10-27', rate: 0.8350 }
   ],
   GBPUSD: [
     { date: '2019-10-15', rate: 1.2780 },
@@ -165,12 +187,15 @@ const memoryCache = {
 /**
  * Fetch historical or latest Spot rate for a pair on a given date.
  */
-async function getSpotRate(pairKey, dateStr) {
+async function getSpotRate(pairKey, dateStr, customSpot = null) {
   const pair = PAIRS[pairKey] || PAIRS.EURUSD;
-  const isInv = pair.isInverted;
-  const standardKey = pair.standardPairKey || pairKey;
-  const stdPair = PAIRS[standardKey] || PAIRS.EURUSD;
 
+  if (customSpot != null && !isNaN(parseFloat(customSpot)) && parseFloat(customSpot) > 0) {
+    return parseFloat(parseFloat(customSpot).toFixed(pair.quoteDecimals));
+  }
+
+  const standardKey = pair.symbol;
+  const stdPair = pair;
   const cacheKey = `${standardKey}_${dateStr}`;
 
   let fetchedRate = null;
@@ -234,11 +259,6 @@ async function getSpotRate(pairKey, dateStr) {
     } catch (e) {}
 
     memoryCache.spots.set(cacheKey, fetchedRate);
-  }
-
-  if (isInv) {
-    const invSpot = 1 / fetchedRate;
-    return parseFloat(invSpot.toFixed(pair.quoteDecimals));
   }
 
   return fetchedRate;
