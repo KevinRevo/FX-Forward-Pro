@@ -4,6 +4,104 @@
    semantic styling, logical CSS properties)
    ========================================================================== */
 
+/* Invert Direction Buttons */
+.bbg-invert-btn {
+  background-color: #213242;
+  color: var(--bbg-cyan);
+  border: 1px solid var(--bbg-cyan-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.bbg-invert-btn:hover {
+  background-color: var(--bbg-cyan);
+  color: var(--bbg-black);
+}
+
+.bbg-invert-btn-mini {
+  background-color: #1a2734;
+  color: var(--bbg-cyan);
+  border: 1px solid #2b3d50;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 5px 8px;
+  cursor: pointer;
+  border-radius: 2px;
+  margin-left: 4px;
+}
+
+.bbg-invert-btn-mini:hover {
+  background-color: #2b3d50;
+  color: var(--bbg-white);
+}
+
+.pair-input-row {
+  display: flex;
+  align-items: center;
+}
+
+/* Mode Toggle (Fixed vs Window Forward) */
+.card-heading-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--bbg-border);
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.card-heading-box .card-heading {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.mode-toggle-group {
+  display: flex;
+  gap: 4px;
+  background-color: var(--bbg-black);
+  padding: 2px;
+  border: 1px solid var(--bbg-border);
+  border-radius: 2px;
+}
+
+.mode-btn {
+  background: transparent;
+  color: var(--bbg-text-dim);
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.15s;
+}
+
+.mode-btn:hover {
+  color: var(--bbg-white);
+}
+
+.mode-btn.active {
+  background-color: var(--bbg-amber);
+  color: var(--bbg-black);
+}
+
+.window-dates-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Base Terminal Colors */
 :root {
   --bbg-black: #080a0c;
   --bbg-dark: #0f141a;
