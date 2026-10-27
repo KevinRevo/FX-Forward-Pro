@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>FX FORWARD PRO | Interbank CIP &amp; Window Forward Analytics</title>
-  <link rel="stylesheet" href="style.css?v=20261027_4">
+  <link rel="stylesheet" href="style.css?v=20261027_5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -44,10 +44,10 @@
         <span class="sec-pair" id="active-pair-name">EUR/GBP</span>
         <span class="lhs-rhs-badge" id="banner-lhs-rhs-badge">EUR/GBP</span>
         <span class="sec-spot-label">SPOT:</span>
-        <span class="sec-spot-bid" id="banner-spot-bid">0.8565</span>
+        <span class="sec-tag">LHS (Bid): <strong class="green-text" id="banner-spot-bid">0.85659</strong></span>
         <span class="sec-spot-slash">/</span>
-        <span class="sec-spot-ask" id="banner-spot-ask">0.8567</span>
-        <span class="sec-spot-mid" id="banner-spot-mid">(0.85660)</span>
+        <span class="sec-tag">RHS (Ask): <strong class="amber-text" id="banner-spot-ask">0.85661</strong></span>
+        <span class="sec-spot-mid" id="banner-spot-mid">(Mid: 0.85660)</span>
       </div>
       <div class="sec-right">
         <span class="sec-tag">Base (<span id="banner-base-code">EUR</span>): <span id="banner-base-rate" class="rate-val">€STR 2.75%</span> (ACT/360)</span>
@@ -108,6 +108,9 @@
                   <input type="number" id="fxfa-spot-input" class="bbg-input" step="0.000001" value="0.856600">
                   <button type="button" id="fxfa-reset-spot-btn" class="bbg-action-btn-mini" title="Fetch default market spot for this date">Auto</button>
                 </div>
+                <div class="spot-live-breakdown" id="spot-live-breakdown">
+                  Spot LHS (Bid): <strong class="green-text" id="input-spot-lhs">0.85659</strong> | Spot RHS (Ask): <strong class="amber-text" id="input-spot-rhs">0.85661</strong>
+                </div>
               </div>
             </div>
 
@@ -160,7 +163,7 @@
             <div class="card-heading-box">
               <h2 class="card-heading" id="pricer-result-heading">INTERBANK FORWARD PRICING (BID / ASK)</h2>
               <div class="pricing-meta-pills">
-                <span class="meta-pill" id="pill-spot">Spot: <strong id="res-spot">0.856600</strong></span>
+                <span class="meta-pill" id="pill-spot">Spot: LHS <strong id="res-spot-lhs-pill" class="green-text">0.85659</strong> / RHS <strong id="res-spot-rhs-pill" class="amber-text">0.85661</strong> (Mid <span id="res-spot">0.85660</span>)</span>
                 <span class="meta-pill" id="pill-settle">Settle: <strong id="res-spot-date">2026-08-27</strong> (<span id="res-days">99d</span>)</span>
                 <span class="meta-pill" id="pill-structure"><strong id="win-curve-structure">DISCOUNT</strong></span>
               </div>
@@ -173,6 +176,10 @@
                 <div class="two-way-header">
                   <span class="badge-role bid-role">LHS (BID)</span>
                   <span class="badge-type">BANK BUYS @ BID</span>
+                </div>
+                <div class="two-way-spot-row">
+                  <span>Spot LHS (Bid):</span>
+                  <strong class="green-text" id="res-spot-lhs">0.85659</strong>
                 </div>
                 <div class="rate-display">
                   <span class="two-way-rate green-rate" id="res-fwd-bid">0.854320</span>
@@ -188,6 +195,10 @@
                 <div class="two-way-header">
                   <span class="badge-role ask-role">RHS (ASK / OFFER)</span>
                   <span class="badge-type">BANK SELLS @ ASK</span>
+                </div>
+                <div class="two-way-spot-row">
+                  <span>Spot RHS (Ask):</span>
+                  <strong class="amber-text" id="res-spot-rhs">0.85661</strong>
                 </div>
                 <div class="rate-display">
                   <span class="two-way-rate amber-rate" id="res-fwd-ask">0.854436</span>
@@ -224,15 +235,20 @@
               <div class="exec-left">
                 <div class="exec-pill" id="lbl-metric-rate">CLIENT EXECUTABLE RATE</div>
                 <div class="exec-rate-wrap">
-                  <span class="exec-rate highlight" id="res-outright">0.854437</span>
+                  <span class="exec-rate highlight" id="res-outright">0.854436</span>
                   <span class="exec-desc" id="res-sub-desc">Guaranteed Rate for Window Execution</span>
+                </div>
+                <div class="exec-spot-detail">
+                  <span>Deal Spot: <strong id="res-deal-spot" class="highlight">0.85661 (RHS / Ask)</strong></span>
+                  <span class="exec-sep">|</span>
+                  <span>Swap Pts: <strong id="res-deal-points">-21.7 pips</strong></span>
                 </div>
               </div>
               <div class="exec-right">
-                <div class="exec-deal-label" id="res-deal-direction">Client BUYS EUR (LHS) @ Bank ASK</div>
+                <div class="exec-deal-label" id="res-deal-direction">RHS Deal: Client BUYS EUR / SELLS GBP @ Bank ASK</div>
                 <div class="exec-cashflow-box">
                   <span class="cashflow-lbl">Settlement Cashflow:</span>
-                  <strong class="cashflow-val highlight" id="res-cashflow">£854,437.00 GBP for €1,000,000.00 EUR</strong>
+                  <strong class="cashflow-val highlight" id="res-cashflow">£854,436.00 GBP for €1,000,000.00 EUR</strong>
                 </div>
               </div>
             </div>
@@ -309,12 +325,28 @@
             <!-- Breakdown for Fixed Forward -->
             <div class="decomposition-box" id="fixed-decomposition" style="display: none;">
               <div class="decomp-row">
-                <span>Interbank Bid Forward:</span>
-                <span id="fix-bid-fwd" class="rate-val green-text">0.854321</span>
+                <span>Spot LHS (Bid):</span>
+                <span id="fix-spot-bid" class="rate-val green-text">0.85659</span>
               </div>
               <div class="decomp-row">
-                <span>Interbank Ask Forward:</span>
-                <span id="fix-ask-fwd" class="rate-val amber-text">0.854437</span>
+                <span>Spot RHS (Ask):</span>
+                <span id="fix-spot-ask" class="rate-val amber-text">0.85661</span>
+              </div>
+              <div class="decomp-row">
+                <span>Swap Points LHS (Bid):</span>
+                <span id="fix-pts-bid" class="rate-val green-text">-22.7 pips</span>
+              </div>
+              <div class="decomp-row">
+                <span>Swap Points RHS (Ask):</span>
+                <span id="fix-pts-ask" class="rate-val amber-text">-21.7 pips</span>
+              </div>
+              <div class="decomp-row">
+                <span>Forward LHS (Bid):</span>
+                <span id="fix-bid-fwd" class="rate-val green-text">0.854320</span>
+              </div>
+              <div class="decomp-row">
+                <span>Forward RHS (Ask):</span>
+                <span id="fix-ask-fwd" class="rate-val amber-text">0.854436</span>
               </div>
               <div class="decomp-row">
                 <span>Mid Swap Points:</span>
@@ -542,7 +574,7 @@
     </footer>
   </div>
 
-  <script src="engine.js?v=20261027_4"></script>
-  <script src="app.js?v=20261027_4"></script>
+  <script src="engine.js?v=20261027_5"></script>
+  <script src="app.js?v=20261027_5"></script>
 </body>
 </html>
