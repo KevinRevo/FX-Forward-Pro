@@ -1,6 +1,11 @@
 /**
- * Standalone Browser CIP Engine & Historical Database
- * Enables full offline and GitHub Pages client-side execution.
+ * Institutional Interbank FX Forward Client Engine
+ * Full client-side execution for GitHub Pages & offline operation.
+ * Supports:
+ * - Bidirectional quoting (EUR:USD, USD:EUR, etc.)
+ * - Fixed Forwards & Broken Dates
+ * - Window Forwards (Flexible delivery under conservative carry boundary)
+ * - Historical CIP Parity
  */
 
 const CIP_CLIENT = (() => {
@@ -15,32 +20,57 @@ const CIP_CLIENT = (() => {
     NZD: { code: 'NZD', name: 'New Zealand Dollar', dayCount: 365, benchmarkRate: 'NZIONA', symbol: 'NZ$' }
   };
 
-  const PAIRS = {
-    EURUSD: {
-      symbol: 'EURUSD', base: 'EUR', quote: 'USD', name: 'EUR / USD', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1,
-      typicalSpreadPips: { ON: 0.1, TN: 0.1, SN: 0.1, '1W': 0.15, '2W': 0.2, '1M': 0.3, '2M': 0.4, '3M': 0.5, '6M': 0.8, '9M': 1.0, '1Y': 1.2, '2Y': 2.0, '3Y': 3.0, '5Y': 5.0 }
-    },
-    GBPUSD: {
-      symbol: 'GBPUSD', base: 'GBP', quote: 'USD', name: 'GBP / USD', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1,
-      typicalSpreadPips: { ON: 0.15, TN: 0.15, SN: 0.15, '1W': 0.2, '2W': 0.3, '1M': 0.4, '2M': 0.6, '3M': 0.7, '6M': 1.1, '9M': 1.4, '1Y': 1.8, '2Y': 2.5, '3Y': 4.0, '5Y': 6.0 }
-    },
-    USDJPY: {
-      symbol: 'USDJPY', base: 'USD', quote: 'JPY', name: 'USD / JPY', spotLag: 2, pipSize: 0.01, quoteDecimals: 3, pipDecimals: 1,
-      typicalSpreadPips: { ON: 0.1, TN: 0.1, SN: 0.1, '1W': 0.15, '2W': 0.2, '1M': 0.3, '2M': 0.4, '3M': 0.5, '6M': 0.9, '9M': 1.2, '1Y': 1.5, '2Y': 2.5, '3Y': 3.5, '5Y': 6.0 }
-    },
-    USDCHF: {
-      symbol: 'USDCHF', base: 'USD', quote: 'CHF', name: 'USD / CHF', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1,
-      typicalSpreadPips: { ON: 0.15, TN: 0.15, SN: 0.15, '1W': 0.2, '2W': 0.3, '1M': 0.4, '2M': 0.6, '3M': 0.7, '6M': 1.2, '9M': 1.5, '1Y': 2.0, '2Y': 3.0, '3Y': 4.5, '5Y': 7.0 }
-    },
-    USDCAD: {
-      symbol: 'USDCAD', base: 'USD', quote: 'CAD', name: 'USD / CAD', spotLag: 1, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1,
-      typicalSpreadPips: { ON: 0.15, TN: 0.15, SN: 0.15, '1W': 0.2, '2W': 0.3, '1M': 0.4, '2M': 0.6, '3M': 0.8, '6M': 1.2, '9M': 1.5, '1Y': 2.0, '2Y': 3.2, '3Y': 4.5, '5Y': 7.0 }
-    },
-    AUDUSD: {
-      symbol: 'AUDUSD', base: 'AUD', quote: 'USD', name: 'AUD / USD', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1,
-      typicalSpreadPips: { ON: 0.15, TN: 0.15, SN: 0.15, '1W': 0.2, '2W': 0.3, '1M': 0.4, '2M': 0.6, '3M': 0.8, '6M': 1.2, '9M': 1.5, '1Y': 2.0, '2Y': 3.0, '3Y': 4.5, '5Y': 7.0 }
-    }
+  const BASE_PAIRS = {
+    EURUSD: { symbol: 'EURUSD', base: 'EUR', quote: 'USD', name: 'EUR / USD', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1 },
+    GBPUSD: { symbol: 'GBPUSD', base: 'GBP', quote: 'USD', name: 'GBP / USD', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1 },
+    USDJPY: { symbol: 'USDJPY', base: 'USD', quote: 'JPY', name: 'USD / JPY', spotLag: 2, pipSize: 0.01, quoteDecimals: 3, pipDecimals: 1 },
+    USDCHF: { symbol: 'USDCHF', base: 'USD', quote: 'CHF', name: 'USD / CHF', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1 },
+    USDCAD: { symbol: 'USDCAD', base: 'USD', quote: 'CAD', name: 'USD / CAD', spotLag: 1, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1 },
+    AUDUSD: { symbol: 'AUDUSD', base: 'AUD', quote: 'USD', name: 'AUD / USD', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1 },
+    NZDUSD: { symbol: 'NZDUSD', base: 'NZD', quote: 'USD', name: 'NZD / USD', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1 },
+    EURGBP: { symbol: 'EURGBP', base: 'EUR', quote: 'GBP', name: 'EUR / GBP', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1 },
+    EURJPY: { symbol: 'EURJPY', base: 'EUR', quote: 'JPY', name: 'EUR / JPY', spotLag: 2, pipSize: 0.01, quoteDecimals: 3, pipDecimals: 1 }
   };
+
+  const TYPICAL_SPREADS = {
+    EURUSD: { ON: 0.1, TN: 0.1, SN: 0.1, '1W': 0.15, '2W': 0.2, '1M': 0.3, '2M': 0.4, '3M': 0.5, '6M': 0.8, '9M': 1.0, '1Y': 1.2, '2Y': 2.0, '3Y': 3.0, '5Y': 5.0 },
+    GBPUSD: { ON: 0.15, TN: 0.15, SN: 0.15, '1W': 0.2, '2W': 0.3, '1M': 0.4, '2M': 0.6, '3M': 0.7, '6M': 1.1, '9M': 1.4, '1Y': 1.8, '2Y': 2.5, '3Y': 4.0, '5Y': 6.0 },
+    USDJPY: { ON: 0.1, TN: 0.1, SN: 0.1, '1W': 0.15, '2W': 0.2, '1M': 0.3, '2M': 0.4, '3M': 0.5, '6M': 0.9, '9M': 1.2, '1Y': 1.5, '2Y': 2.5, '3Y': 3.5, '5Y': 6.0 },
+    USDCHF: { ON: 0.15, TN: 0.15, SN: 0.15, '1W': 0.2, '2W': 0.3, '1M': 0.4, '2M': 0.6, '3M': 0.7, '6M': 1.2, '9M': 1.5, '1Y': 2.0, '2Y': 3.0, '3Y': 4.5, '5Y': 7.0 },
+    USDCAD: { ON: 0.15, TN: 0.15, SN: 0.15, '1W': 0.2, '2W': 0.3, '1M': 0.4, '2M': 0.6, '3M': 0.8, '6M': 1.2, '9M': 1.5, '1Y': 2.0, '2Y': 3.2, '3Y': 4.5, '5Y': 7.0 },
+    AUDUSD: { ON: 0.15, TN: 0.15, SN: 0.15, '1W': 0.2, '2W': 0.3, '1M': 0.4, '2M': 0.6, '3M': 0.8, '6M': 1.2, '9M': 1.5, '1Y': 2.0, '2Y': 3.0, '3Y': 4.5, '5Y': 7.0 }
+  };
+
+  const PAIRS = {};
+  Object.keys(BASE_PAIRS).forEach(key => {
+    const std = BASE_PAIRS[key];
+    PAIRS[key] = {
+      ...std,
+      typicalSpreadPips: TYPICAL_SPREADS[key] || TYPICAL_SPREADS.EURUSD,
+      standardPairKey: key,
+      isInverted: false
+    };
+
+    const invKey = `${std.quote}${std.base}`;
+    let invPip = 0.0001;
+    let invDec = 5;
+    if (std.quote === 'JPY') { invPip = 0.000001; invDec = 6; }
+    else if (std.base === 'JPY') { invPip = 0.01; invDec = 3; }
+
+    PAIRS[invKey] = {
+      symbol: invKey,
+      base: std.quote,
+      quote: std.base,
+      name: `${std.quote} / ${std.base}`,
+      spotLag: std.spotLag,
+      pipSize: invPip,
+      quoteDecimals: invDec,
+      pipDecimals: 1,
+      typicalSpreadPips: TYPICAL_SPREADS[key] || TYPICAL_SPREADS.EURUSD,
+      standardPairKey: key,
+      isInverted: true
+    };
+  });
 
   const STANDARD_TENORS = ['ON', 'TN', 'SN', '1W', '2W', '3W', '1M', '2M', '3M', '6M', '9M', '1Y', '2Y', '3Y', '5Y'];
 
@@ -154,21 +184,32 @@ const CIP_CLIENT = (() => {
   };
 
   function getSpotRate(pairKey, dateStr) {
-    const list = BASELINE_SPOTS[pairKey] || BASELINE_SPOTS.EURUSD;
+    const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+    const stdKey = pair.standardPairKey || 'EURUSD';
+    const isInv = pair.isInverted;
+
+    const list = BASELINE_SPOTS[stdKey] || BASELINE_SPOTS.EURUSD;
     const sorted = [...list].sort((a, b) => new Date(a.date) - new Date(b.date));
-    if (dateStr <= sorted[0].date) return sorted[0].rate;
-    if (dateStr >= sorted[sorted.length - 1].date) return sorted[sorted.length - 1].rate;
-    for (let i = 0; i < sorted.length - 1; i++) {
-      const d1 = new Date(sorted[i].date).getTime();
-      const d2 = new Date(sorted[i + 1].date).getTime();
-      const cur = new Date(dateStr).getTime();
-      if (cur >= d1 && cur <= d2) {
-        const alpha = (cur - d1) / (d2 - d1);
-        const val = sorted[i].rate + alpha * (sorted[i + 1].rate - sorted[i].rate);
-        return parseFloat(val.toFixed(PAIRS[pairKey].quoteDecimals));
+    let baseVal = sorted[0].rate;
+    if (dateStr >= sorted[sorted.length - 1].date) {
+      baseVal = sorted[sorted.length - 1].rate;
+    } else {
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const d1 = new Date(sorted[i].date).getTime();
+        const d2 = new Date(sorted[i + 1].date).getTime();
+        const cur = new Date(dateStr).getTime();
+        if (cur >= d1 && cur <= d2) {
+          const alpha = (cur - d1) / (d2 - d1);
+          baseVal = sorted[i].rate + alpha * (sorted[i + 1].rate - sorted[i].rate);
+          break;
+        }
       }
     }
-    return sorted[sorted.length - 1].rate;
+
+    if (isInv) {
+      return parseFloat((1 / baseVal).toFixed(pair.quoteDecimals));
+    }
+    return parseFloat(baseVal.toFixed(pair.quoteDecimals));
   }
 
   function getYieldCurve(ccy, dateStr) {
@@ -202,10 +243,14 @@ const CIP_CLIENT = (() => {
   }
 
   function getBasisBps(pairKey, dateStr, tenor) {
+    const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+    const stdKey = pair.standardPairKey || 'EURUSD';
+    const isInv = pair.isInverted;
+
     const sorted = [...HISTORICAL_REGIMES].sort((a, b) => new Date(a.date) - new Date(b.date));
-    let b = sorted[0].basisBps[pairKey] || -15;
+    let b = sorted[0].basisBps[stdKey] || -15;
     if (dateStr >= sorted[sorted.length - 1].date) {
-      b = sorted[sorted.length - 1].basisBps[pairKey] || -15;
+      b = sorted[sorted.length - 1].basisBps[stdKey] || -15;
     } else {
       for (let i = 0; i < sorted.length - 1; i++) {
         const t1 = new Date(sorted[i].date).getTime();
@@ -213,13 +258,14 @@ const CIP_CLIENT = (() => {
         const cur = new Date(dateStr).getTime();
         if (cur >= t1 && cur <= t2) {
           const w = (cur - t1) / (t2 - t1);
-          b = sorted[i].basisBps[pairKey] + w * (sorted[i + 1].basisBps[pairKey] - sorted[i].basisBps[pairKey]);
+          b = sorted[i].basisBps[stdKey] + w * (sorted[i + 1].basisBps[stdKey] - sorted[i].basisBps[stdKey]);
           break;
         }
       }
     }
     const mults = { ON: 0.2, TN: 0.2, SN: 0.2, '1W': 0.4, '2W': 0.6, '1M': 0.8, '2M': 0.9, '3M': 1.0, '6M': 1.15, '9M': 1.25, '1Y': 1.35, '2Y': 1.45, '3Y': 1.5, '5Y': 1.5 };
-    return b * (mults[tenor] || 1.0);
+    const res = b * (mults[tenor] || 1.0);
+    return isInv ? -res : res;
   }
 
   function interpolateRate(curve, days) {
@@ -411,6 +457,109 @@ const CIP_CLIENT = (() => {
     };
   }
 
+  function windowForward(pairKey, asOf, windowStart, windowEnd, direction = 'BUY_BASE', options = {}) {
+    const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+    const applyXccy = options.applyXccy !== false;
+    const notional = parseFloat(options.notional) || 1000000;
+
+    const startFwd = brokenDate(pairKey, asOf, windowStart, applyXccy);
+    const endFwd = brokenDate(pairKey, asOf, windowEnd, applyXccy);
+
+    const isUpward = endFwd.outrightForward >= startFwd.outrightForward;
+    let windowRate;
+    let worstCaseDate;
+    let worstCaseDays;
+
+    if (direction === 'BUY_BASE') {
+      if (isUpward) {
+        windowRate = endFwd.outrightForward;
+        worstCaseDate = windowEnd;
+        worstCaseDays = endFwd.days;
+      } else {
+        windowRate = startFwd.outrightForward;
+        worstCaseDate = windowStart;
+        worstCaseDays = startFwd.days;
+      }
+    } else {
+      if (isUpward) {
+        windowRate = startFwd.outrightForward;
+        worstCaseDate = windowStart;
+        worstCaseDays = startFwd.days;
+      } else {
+        windowRate = endFwd.outrightForward;
+        worstCaseDate = windowEnd;
+        worstCaseDays = endFwd.days;
+      }
+    }
+
+    const windowPoints = (windowRate - startFwd.spot) / pair.pipSize;
+    const carryCostPips = Math.abs(windowRate - endFwd.outrightForward) / pair.pipSize;
+    const carryCostCash = Math.abs(windowRate - endFwd.outrightForward) * notional;
+    const totalSettlementCash = notional * windowRate;
+
+    const windowSchedule = [];
+    const sDate = new Date(windowStart);
+    const eDate = new Date(windowEnd);
+    const step = Math.max(1, Math.floor((eDate - sDate) / (1000 * 86400 * 5)));
+
+    let cur = new Date(sDate);
+    while (cur <= eDate) {
+      const dStr = cur.toISOString().split('T')[0];
+      const sub = brokenDate(pairKey, asOf, dStr, applyXccy);
+      windowSchedule.push({
+        date: dStr,
+        days: sub.days,
+        outrightForward: sub.outrightForward,
+        swapPoints: sub.swapPoints,
+        baseRate: sub.baseRate,
+        quoteRate: sub.quoteRate
+      });
+      cur.setUTCDate(cur.getUTCDate() + step);
+    }
+    if (windowSchedule[windowSchedule.length - 1].date !== windowEnd) {
+      windowSchedule.push({
+        date: windowEnd,
+        days: endFwd.days,
+        outrightForward: endFwd.outrightForward,
+        swapPoints: endFwd.swapPoints,
+        baseRate: endFwd.baseRate,
+        quoteRate: endFwd.quoteRate
+      });
+    }
+
+    return {
+      pair: pair.symbol,
+      pairName: pair.name,
+      tradeDate: asOf,
+      spotDate: startFwd.spotDate,
+      spot: startFwd.spot,
+      direction,
+      directionLabel: direction === 'BUY_BASE' ? `Client BUYS ${pair.base} / SELLS ${pair.quote}` : `Client SELLS ${pair.base} / BUYS ${pair.quote}`,
+      windowStart,
+      windowEnd,
+      windowDurationDays: endFwd.days - startFwd.days,
+      windowRate: parseFloat(windowRate.toFixed(pair.quoteDecimals)),
+      windowPoints: parseFloat(windowPoints.toFixed(pair.pipDecimals)),
+      worstCaseDate,
+      worstCaseDays,
+      curveStructure: isUpward ? 'PREMIUM (Upward Sloping)' : 'DISCOUNT (Downward Sloping)',
+      startDatePricing: { date: windowStart, days: startFwd.days, outright: startFwd.outrightForward, points: startFwd.swapPoints },
+      endDatePricing: { date: windowEnd, days: endFwd.days, outright: endFwd.outrightForward, points: endFwd.swapPoints },
+      windowCost: {
+        pips: parseFloat(carryCostPips.toFixed(pair.pipDecimals)),
+        cashflow: parseFloat(carryCostCash.toFixed(2)),
+        currency: pair.quote
+      },
+      notional: {
+        baseAmount: notional,
+        baseCurrency: pair.base,
+        settlementCashflow: parseFloat(totalSettlementCash.toFixed(2)),
+        quoteCurrency: pair.quote
+      },
+      windowSchedule
+    };
+  }
+
   function tenorHistory(pairKey, tenor, startDate, endDate, stepDays = 14) {
     const series = [];
     let cur = new Date(startDate);
@@ -438,6 +587,7 @@ const CIP_CLIENT = (() => {
     computeLadder,
     compareCurves,
     brokenDate,
+    windowForward,
     tenorHistory
   };
 })();
