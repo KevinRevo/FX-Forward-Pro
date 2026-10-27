@@ -1038,6 +1038,38 @@ body {
   box-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
 }
 
+.two-way-spot-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--bbg-text-dim);
+  background-color: #0b1118;
+  padding: 4px 8px;
+  border-radius: 2px;
+  margin-top: 4px;
+  margin-bottom: 6px;
+  border: 1px solid #1a2532;
+}
+
+.spot-live-breakdown {
+  font-size: 10px;
+  color: var(--bbg-text-dim);
+  margin-top: 4px;
+}
+
+.exec-spot-detail {
+  font-size: 11px;
+  color: var(--bbg-text-dim);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.exec-sep {
+  color: #3d5064;
+}
+
 .two-way-header {
   display: flex;
   justify-content: space-between;
