@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>FX FORWARD PRO | Interbank CIP &amp; Window Forward Analytics</title>
-  <link rel="stylesheet" href="style.css?v=20261027_5">
+  <link rel="stylesheet" href="style.css?v=20261027_6">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -103,13 +103,15 @@
                 <input type="date" id="fxfa-asof-date" class="bbg-input" value="2026-08-25">
               </div>
               <div class="form-row">
-                <label for="fxfa-spot-input">Spot Rate (Exact / Override):</label>
+                <label for="fxfa-spot-input">Spot Rate <span id="lbl-spot-side" class="spot-side-indicator">(Mid Rate)</span>:</label>
                 <div class="spot-input-wrap">
-                  <input type="number" id="fxfa-spot-input" class="bbg-input" step="0.000001" value="0.856600">
-                  <button type="button" id="fxfa-reset-spot-btn" class="bbg-action-btn-mini" title="Fetch default market spot for this date">Auto</button>
+                  <input type="text" inputmode="decimal" id="fxfa-spot-input" class="bbg-input" value="0.856600" placeholder="e.g. 0.8566 or 1.0740" autocomplete="off" spellcheck="false">
+                  <button type="button" id="fxfa-reset-spot-btn" class="bbg-action-btn-mini" title="Fetch default market spot for this date & pair">Auto</button>
                 </div>
                 <div class="spot-live-breakdown" id="spot-live-breakdown">
-                  Spot LHS (Bid): <strong class="green-text" id="input-spot-lhs">0.85659</strong> | Spot RHS (Ask): <strong class="amber-text" id="input-spot-rhs">0.85661</strong>
+                  <span class="spot-bd-item" id="bd-item-lhs">Spot LHS (Bid): <strong class="green-text" id="input-spot-lhs">0.85659</strong></span>
+                  <span class="spot-bd-sep">|</span>
+                  <span class="spot-bd-item" id="bd-item-rhs">Spot RHS (Ask): <strong class="amber-text" id="input-spot-rhs">0.85661</strong></span>
                 </div>
               </div>
             </div>
@@ -574,7 +576,7 @@
     </footer>
   </div>
 
-  <script src="engine.js?v=20261027_5"></script>
-  <script src="app.js?v=20261027_5"></script>
+  <script src="engine.js?v=20261027_6"></script>
+  <script src="app.js?v=20261027_6"></script>
 </body>
 </html>
