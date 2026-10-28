@@ -8,7 +8,7 @@
  */
 
 let AVAILABLE_PAIRS = [];
-let ACTIVE_PAIR = 'EURGBP';
+let ACTIVE_PAIR = 'EURUSD';
 let CURRENT_LADDER_DATA = null;
 let PRICER_MODE = 'window'; // default to window forward
 
@@ -21,6 +21,7 @@ const presetsContainer = document.getElementById('presets-container');
 // Banner elements
 const activePairName = document.getElementById('active-pair-name');
 const bannerLhsRhsBadge = document.getElementById('banner-lhs-rhs-badge');
+const bannerLiveBadge = document.getElementById('banner-live-badge');
 const bannerSpotBid = document.getElementById('banner-spot-bid');
 const bannerSpotAsk = document.getElementById('banner-spot-ask');
 const bannerSpotMid = document.getElementById('banner-spot-mid');
@@ -31,6 +32,22 @@ const bannerRhsCode = document.getElementById('banner-rhs-code');
 const bannerBaseRate = document.getElementById('banner-base-rate');
 const bannerQuoteRate = document.getElementById('banner-quote-rate');
 const bannerXccyBasis = document.getElementById('banner-xccy-basis');
+
+// Interbank CIP Strip elements
+const stripBaseLbl = document.getElementById('strip-base-lbl');
+const stripBaseVal = document.getElementById('strip-base-val');
+const stripQuoteLbl = document.getElementById('strip-quote-lbl');
+const stripQuoteVal = document.getElementById('strip-quote-val');
+const stripDiffVal = document.getElementById('strip-diff-val');
+const stripFeedSource = document.getElementById('strip-feed-source');
+const btnToggleCustomRates = document.getElementById('btn-toggle-custom-rates');
+const boxCustomRates = document.getElementById('box-custom-rates');
+const fxfaCustomBaseRate = document.getElementById('fxfa-custom-base-rate');
+const fxfaCustomQuoteRate = document.getElementById('fxfa-custom-quote-rate');
+const lblCustomBase = document.getElementById('lbl-custom-base');
+const lblCustomQuote = document.getElementById('lbl-custom-quote');
+const btnResetRates = document.getElementById('btn-reset-rates');
+const fxfaRefreshSpotBtn = document.getElementById('fxfa-refresh-spot-btn');
 
 // FRD elements
 const frdPairSelect = document.getElementById('frd-pair-select');
@@ -153,6 +170,27 @@ const resQuoteRate = document.getElementById('res-quote-rate');
 
 const BENCHMARK_PRESETS = [
   {
+    id: 'live-eurusd',
+    title: '🔴 LIVE EUR:USD (Active Market)',
+    pair: 'EURUSD',
+    date: new Date().toISOString().split('T')[0],
+    description: 'Real-time live interbank spot rate & dual-curve CIP forward structure.'
+  },
+  {
+    id: 'live-eurgbp',
+    title: '🇬🇧 LIVE EUR:GBP (Real SONIA vs €STR)',
+    pair: 'EURGBP',
+    date: new Date().toISOString().split('T')[0],
+    description: 'Current real interbank market for EUR/GBP with active SONIA and €STR rate differentials.'
+  },
+  {
+    id: 'live-usdjpy',
+    title: '🇯🇵 LIVE USD:JPY (Carry Trade)',
+    pair: 'USDJPY',
+    date: new Date().toISOString().split('T')[0],
+    description: 'Live USD/JPY showing forward discount driven by US vs Japan yield gap.'
+  },
+  {
     id: 'eurgbp-benchmark',
     title: 'EUR:GBP Benchmark (25/08/26 Spot 0.8566)',
     pair: 'EURGBP',
@@ -160,7 +198,7 @@ const BENCHMARK_PRESETS = [
     spot: 0.8566,
     winStart: '2026-11-02',
     winEnd: '2027-02-09',
-    description: 'Exact interbank comparison: Window 02/11/26 to 09/02/27 at Spot 0.8566.'
+    description: 'Historical comparison: Window 02/11/26 to 09/02/27 at Spot 0.8566.'
   },
   {
     id: 'fed-peak-2023',
@@ -171,16 +209,6 @@ const BENCHMARK_PRESETS = [
     winStart: '2023-11-15',
     winEnd: '2024-01-15',
     description: 'Peak US 5.5% policy rates, forward points in premium.'
-  },
-  {
-    id: 'usdjpy-divergence',
-    title: 'USD:JPY Rate Divergence (Oct 2023)',
-    pair: 'USDJPY',
-    date: '2023-10-15',
-    spot: 149.50,
-    winStart: '2023-11-15',
-    winEnd: '2024-01-15',
-    description: 'Massive forward discount due to US-Japan interest rate gap.'
   }
 ];
 
@@ -214,6 +242,8 @@ function syncAllSelects(pairSymbol) {
     if (bannerLhsCode) bannerLhsCode.textContent = base;
     if (bannerRhsCode) bannerRhsCode.textContent = quote;
     if (lblNotional) lblNotional.textContent = `${base} Deal Notional Amount:`;
+    if (lblCustomBase) lblCustomBase.textContent = base;
+    if (lblCustomQuote) lblCustomQuote.textContent = quote;
 
     // Institutional Nomenclature:
     // LHS = Client SELLS base / BUYS quote (Executed at Bank BID)
@@ -305,6 +335,22 @@ async function init() {
       });
     });
 
+    const today = new Date().toISOString().split('T')[0];
+    if (fxfaAsofDate) fxfaAsofDate.value = today;
+    if (frdDateInput) frdDateInput.value = today;
+    if (compDate1 && !compDate1.value) compDate1.value = '2023-10-15';
+    if (compDate2) compDate2.value = today;
+    if (histStartDate && !histStartDate.value) histStartDate.value = '2023-01-01';
+    if (histEndDate) histEndDate.value = today;
+
+    const dWinStart = new Date();
+    dWinStart.setUTCDate(dWinStart.getUTCDate() + 30);
+    const dWinEnd = new Date();
+    dWinEnd.setUTCDate(dWinEnd.getUTCDate() + 90);
+    if (fxfaWindowStart) fxfaWindowStart.value = dWinStart.toISOString().split('T')[0];
+    if (fxfaWindowEnd) fxfaWindowEnd.value = dWinEnd.toISOString().split('T')[0];
+    if (fxfaSettleDate) fxfaSettleDate.value = dWinEnd.toISOString().split('T')[0];
+
     renderPresets(BENCHMARK_PRESETS);
     syncAllSelects(ACTIVE_PAIR);
 
@@ -345,15 +391,63 @@ function applyPreset(preset) {
 }
 
 /**
+ * Fetch market spot details from server or client engine
+ */
+async function getMarketSpotDetails(pairKey, asOfDate, forceRefresh = false, customSpot = null) {
+  const pair = getPairMeta(pairKey);
+  const decimals = pair.quoteDecimals || 5;
+  const spreadPips = (pair.typicalSpreadPips && pair.typicalSpreadPips['1M']) || 0.4;
+  const halfSpread = (spreadPips * 0.5) * pair.pipSize;
+
+  if (customSpot != null && !isNaN(parseFloat(customSpot)) && parseFloat(customSpot) > 0) {
+    const mid = parseFloat(customSpot);
+    return {
+      rate: mid, mid,
+      bid: parseFloat((mid - halfSpread).toFixed(decimals)),
+      ask: parseFloat((mid + halfSpread).toFixed(decimals)),
+      source: 'USER_OVERRIDE',
+      isLive: false,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // 1. Try server API
+  try {
+    const res = await fetch(`/api/spot?pair=${pairKey}&date=${asOfDate}${forceRefresh ? '&refresh=true' : ''}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.mid > 0) return data;
+    }
+  } catch (e) {}
+
+  // 2. Try CIP_CLIENT in engine.js
+  if (typeof CIP_CLIENT !== 'undefined' && CIP_CLIENT.fetchLiveSpot) {
+    try {
+      const data = await CIP_CLIENT.fetchLiveSpot(pairKey, asOfDate, null, forceRefresh);
+      if (data && data.mid > 0) return data;
+    } catch (e) {}
+  }
+
+  // 3. Fallback
+  const mid = (typeof CIP_CLIENT !== 'undefined') ? CIP_CLIENT.getSpotRate(pairKey, asOfDate) : 1.0;
+  return {
+    rate: mid, mid,
+    bid: parseFloat((mid - halfSpread).toFixed(decimals)),
+    ask: parseFloat((mid + halfSpread).toFixed(decimals)),
+    source: 'INTERBANK_BASELINE',
+    isLive: false,
+    timestamp: new Date().toISOString()
+  };
+}
+
+/**
  * Dynamically synchronize the Spot Rate input, the breakdown (LHS Bid vs RHS Ask),
  * the active side indicator, and the top terminal banner across pair and direction changes.
  */
-function updateSpotUI(pairKey, asOfDate, direction, rawInputVal = null, forceReset = false) {
+async function updateSpotUI(pairKey, asOfDate, direction, rawInputVal = null, forceReset = false) {
   const pairMeta = getPairMeta(pairKey);
   const isLHS = (direction === 'LHS' || direction === 'SELL_LHS' || direction === 'SELL');
   const decimals = pairMeta.quoteDecimals || 5;
-  const spreadPips = (pairMeta.typicalSpreadPips && pairMeta.typicalSpreadPips['1M']) ? pairMeta.typicalSpreadPips['1M'] : 0.4;
-  const halfSpread = (spreadPips * 0.5) * pairMeta.pipSize;
 
   let spotVal = null;
   if (!forceReset && rawInputVal != null && rawInputVal !== '') {
@@ -363,22 +457,20 @@ function updateSpotUI(pairKey, asOfDate, direction, rawInputVal = null, forceRes
     }
   }
 
-  // If force reset or no custom input, get market spot for this date & pair
-  if (spotVal == null) {
-    if (typeof CIP_CLIENT !== 'undefined') {
-      const def = CIP_CLIENT.getSpotBidAsk(pairKey, asOfDate, null, direction);
-      spotVal = def.mid;
-    } else {
-      spotVal = 1.0;
-    }
+  let details;
+  if (spotVal == null || forceReset) {
+    details = await getMarketSpotDetails(pairKey, asOfDate, forceReset);
+    spotVal = details.mid;
     if (fxfaSpotInput) {
       fxfaSpotInput.value = spotVal.toFixed(decimals);
     }
+  } else {
+    details = await getMarketSpotDetails(pairKey, asOfDate, false, spotVal);
   }
 
-  const spotBid = parseFloat((spotVal - halfSpread).toFixed(decimals));
-  const spotAsk = parseFloat((spotVal + halfSpread).toFixed(decimals));
-  const spotMid = spotVal;
+  const spotBid = details.bid;
+  const spotAsk = details.ask;
+  const spotMid = details.mid;
 
   if (inputSpotLhs) inputSpotLhs.textContent = spotBid.toFixed(decimals);
   if (inputSpotRhs) inputSpotRhs.textContent = spotAsk.toFixed(decimals);
@@ -396,17 +488,88 @@ function updateSpotUI(pairKey, asOfDate, direction, rawInputVal = null, forceRes
   if (bannerSpotAsk) bannerSpotAsk.textContent = spotAsk.toFixed(decimals);
   if (bannerSpotMid) bannerSpotMid.textContent = `(Mid: ${spotMid.toFixed(decimals)})`;
 
-  return { spotMid, spotBid, spotAsk, isLHS };
+  if (bannerLiveBadge) {
+    if (details.isLive) {
+      bannerLiveBadge.textContent = '🟢 LIVE';
+      bannerLiveBadge.className = 'live-pulse-badge';
+    } else {
+      bannerLiveBadge.textContent = details.source === 'USER_OVERRIDE' ? '✏️ OVERRIDE' : '📅 HISTORICAL';
+      bannerLiveBadge.className = 'live-pulse-badge historical';
+    }
+  }
+
+  if (stripFeedSource) {
+    if (details.isLive) {
+      stripFeedSource.textContent = '🟢 LIVE INTERBANK (' + (details.source || 'REALTIME') + ')';
+      stripFeedSource.className = 'cip-strip-source';
+    } else {
+      stripFeedSource.textContent = details.source === 'USER_OVERRIDE' ? '✏️ CUSTOM OVERRIDE' : '📅 ' + (details.source || 'HISTORICAL FIXING');
+      stripFeedSource.className = 'cip-strip-source historical';
+    }
+  }
+
+  return { spotMid, spotBid, spotAsk, isLHS, details };
+}
+
+function updateRateStripAndBanner(data, pairMeta) {
+  const base = pairMeta.base || pairMeta.lhs;
+  const quote = pairMeta.quote || pairMeta.rhs;
+  const bRate = data.startDatePricing?.baseRate != null ? data.startDatePricing.baseRate : (data.baseRate != null ? data.baseRate : 0);
+  const qRate = data.startDatePricing?.quoteRate != null ? data.startDatePricing.quoteRate : (data.quoteRate != null ? data.quoteRate : 0);
+  const diffRate = qRate - bRate;
+  const xccy = data.xccyBps != null ? data.xccyBps : 0;
+
+  if (stripBaseLbl) stripBaseLbl.textContent = `${base} / ${data.baseCcy?.benchmark || '€STR'}`;
+  if (stripQuoteLbl) stripQuoteLbl.textContent = `${quote} / ${data.quoteCcy?.benchmark || 'SOFR'}`;
+  if (stripBaseVal) stripBaseVal.textContent = `${bRate.toFixed(3)}%`;
+  if (stripQuoteVal) stripQuoteVal.textContent = `${qRate.toFixed(3)}%`;
+  if (stripDiffVal) {
+    stripDiffVal.textContent = `${diffRate >= 0 ? '+' : ''}${diffRate.toFixed(3)}% (${diffRate >= 0 ? '+' : ''}${Math.round(diffRate * 100)} bps)`;
+    stripDiffVal.className = `cip-strip-val ${diffRate >= 0 ? 'highlight' : 'negative'}`;
+  }
+
+  if (bannerBaseRate) bannerBaseRate.textContent = `${data.baseCcy?.benchmark || 'RFR'} ${bRate.toFixed(2)}%`;
+  if (bannerQuoteRate) bannerQuoteRate.textContent = `${data.quoteCcy?.benchmark || 'RFR'} ${qRate.toFixed(2)}%`;
+  if (bannerXccyBasis) bannerXccyBasis.textContent = `${xccy.toFixed(1)} bps`;
 }
 
 // Spot Reset Button
-fxfaResetSpotBtn.addEventListener('click', () => {
+fxfaResetSpotBtn.addEventListener('click', async () => {
   const pair = fxfaPairSelect.value || ACTIVE_PAIR;
   const asOf = fxfaAsofDate.value;
   const dir = fxfaDirection.value;
-  updateSpotUI(pair, asOf, dir, null, true);
+  await updateSpotUI(pair, asOf, dir, null, true);
   calculatePricer();
 });
+
+// Spot Live Tick Refresh Button
+if (fxfaRefreshSpotBtn) {
+  fxfaRefreshSpotBtn.addEventListener('click', async () => {
+    const pair = fxfaPairSelect.value || ACTIVE_PAIR;
+    const asOf = fxfaAsofDate.value;
+    const dir = fxfaDirection.value;
+    await updateSpotUI(pair, asOf, dir, null, true);
+    calculatePricer();
+  });
+}
+
+// Custom Rates Toggles
+if (btnToggleCustomRates) {
+  btnToggleCustomRates.addEventListener('click', () => {
+    const isHidden = boxCustomRates.style.display === 'none';
+    boxCustomRates.style.display = isHidden ? 'block' : 'none';
+    btnToggleCustomRates.textContent = isHidden ? '▲ Hide Custom Rates' : '⚙️ Customize Interbank Rates (Advanced CIP)';
+  });
+}
+if (btnResetRates) {
+  btnResetRates.addEventListener('click', () => {
+    if (fxfaCustomBaseRate) fxfaCustomBaseRate.value = '';
+    if (fxfaCustomQuoteRate) fxfaCustomQuoteRate.value = '';
+    calculatePricer();
+  });
+}
+if (fxfaCustomBaseRate) fxfaCustomBaseRate.addEventListener('input', calculatePricer);
+if (fxfaCustomQuoteRate) fxfaCustomQuoteRate.addEventListener('input', calculatePricer);
 
 // 1. PRICER: Fixed Forward & Window Forward Calculator
 async function calculatePricer() {
@@ -416,6 +579,11 @@ async function calculatePricer() {
   const asOf = fxfaAsofDate.value;
   const rawSpotStr = fxfaSpotInput.value ? fxfaSpotInput.value.trim().replace(',', '.') : '';
   const customSpot = rawSpotStr && !isNaN(parseFloat(rawSpotStr)) && parseFloat(rawSpotStr) > 0 ? parseFloat(rawSpotStr) : null;
+  const customBase = (fxfaCustomBaseRate && fxfaCustomBaseRate.value) ? parseFloat(fxfaCustomBaseRate.value.trim().replace(',', '.')) : null;
+  const customQuote = (fxfaCustomQuoteRate && fxfaCustomQuoteRate.value) ? parseFloat(fxfaCustomQuoteRate.value.trim().replace(',', '.')) : null;
+  const rateParams = (customBase != null && !isNaN(customBase) ? `&baseRate=${customBase}` : '') +
+                     (customQuote != null && !isNaN(customQuote) ? `&quoteRate=${customQuote}` : '');
+
   const applyXccy = fxfaXccyToggle.checked;
   const notional = parseFloat(fxfaNotional.value) || 1000000;
   const pairMeta = getPairMeta(pair);
@@ -427,8 +595,9 @@ async function calculatePricer() {
   // RHS = Client BUYS base / SELLS quote (Executed at Bank ASK)
   const isLHS = (direction === 'LHS' || direction === 'SELL_LHS' || direction === 'SELL');
 
-  // Immediately ensure spot breakdown reflects the current pair, date and direction
-  updateSpotUI(pair, asOf, direction, customSpot != null ? customSpot.toString() : null, false);
+  // Ensure spot breakdown reflects the current pair, date and direction
+  const spotUiResult = await updateSpotUI(pair, asOf, direction, customSpot != null ? customSpot.toString() : null, false);
+  const activeSpot = customSpot != null ? customSpot : (spotUiResult ? spotUiResult.spotMid : null);
 
   if (PRICER_MODE === 'window') {
     // WINDOW FORWARD
@@ -445,14 +614,20 @@ async function calculatePricer() {
     try {
       let data = null;
       try {
-        const spotParam = customSpot ? `&spot=${customSpot}` : '';
-        const url = `/api/window-forward?pair=${pair}&asOf=${asOf}&windowStart=${winStart}&windowEnd=${winEnd}&direction=${isLHS ? 'LHS' : 'RHS'}&notional=${notional}&applyXccy=${applyXccy}${spotParam}`;
+        const spotParam = activeSpot ? `&spot=${activeSpot}` : '';
+        const url = `/api/window-forward?pair=${pair}&asOf=${asOf}&windowStart=${winStart}&windowEnd=${winEnd}&direction=${isLHS ? 'LHS' : 'RHS'}&notional=${notional}&applyXccy=${applyXccy}${spotParam}${rateParams}`;
         const res = await fetch(url);
         if (res.ok) data = await res.json();
       } catch (e) {}
 
       if (!data && typeof CIP_CLIENT !== 'undefined') {
-        data = CIP_CLIENT.windowForward(pair, asOf, winStart, winEnd, isLHS ? 'LHS' : 'RHS', { applyXccy, notional, spot: customSpot });
+        data = CIP_CLIENT.windowForward(pair, asOf, winStart, winEnd, isLHS ? 'LHS' : 'RHS', {
+          applyXccy,
+          notional,
+          spot: activeSpot,
+          baseRate: customBase,
+          quoteRate: customQuote
+        });
       }
 
       if (!data) throw new Error('Could not calculate window forward');
@@ -461,7 +636,8 @@ async function calculatePricer() {
       if (!fxfaSpotInput.value) fxfaSpotInput.value = data.spot.toFixed(pairMeta.quoteDecimals);
 
       // Update banner & breakdown
-      updateSpotUI(pair, asOf, direction, customSpot != null ? customSpot.toString() : data.spot.toString(), false);
+      await updateSpotUI(pair, asOf, direction, customSpot != null ? customSpot.toString() : data.spot.toString(), false);
+      updateRateStripAndBanner(data, pairMeta);
 
       // 1. Meta Pills & Spot LHS / RHS
       resSpot.textContent = data.spot.toFixed(pairMeta.quoteDecimals);
@@ -571,18 +747,22 @@ async function calculatePricer() {
     try {
       let data = null;
       try {
-        const spotParam = customSpot ? `&spot=${customSpot}` : '';
-        const res = await fetch(`/api/broken-date?pair=${pair}&asOf=${asOf}&settlement=${settle}&applyXccy=${applyXccy}${spotParam}`);
+        const spotParam = activeSpot ? `&spot=${activeSpot}` : '';
+        const res = await fetch(`/api/broken-date?pair=${pair}&asOf=${asOf}&settlement=${settle}&applyXccy=${applyXccy}${spotParam}${rateParams}`);
         if (res.ok) data = await res.json();
       } catch (e) {}
 
       if (!data && typeof CIP_CLIENT !== 'undefined') {
-        data = CIP_CLIENT.brokenDate(pair, asOf, settle, applyXccy, customSpot);
+        data = CIP_CLIENT.brokenDate(pair, asOf, settle, applyXccy, activeSpot, {
+          baseRate: customBase,
+          quoteRate: customQuote
+        });
       }
 
       if (!data) throw new Error('Could not calculate fixed forward');
 
-      updateSpotUI(pair, asOf, direction, customSpot != null ? customSpot.toString() : data.spot.toString(), false);
+      await updateSpotUI(pair, asOf, direction, customSpot != null ? customSpot.toString() : data.spot.toString(), false);
+      updateRateStripAndBanner(data, pairMeta);
 
       resSpot.textContent = data.spot.toFixed(pairMeta.quoteDecimals);
       if (resSpotLhsPill) resSpotLhsPill.textContent = data.spotBid.toFixed(pairMeta.quoteDecimals);
@@ -1009,15 +1189,15 @@ if (fxfaSpotInput) {
   });
 }
 
-fxfaPairSelect.addEventListener('change', () => {
+fxfaPairSelect.addEventListener('change', async () => {
   ACTIVE_PAIR = fxfaPairSelect.value;
   syncAllSelects(ACTIVE_PAIR);
-  updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, null, true);
+  await updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, null, true);
   calculatePricer();
 });
 
-fxfaAsofDate.addEventListener('change', () => {
-  updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, null, true);
+fxfaAsofDate.addEventListener('change', async () => {
+  await updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, null, true);
   calculatePricer();
 });
 
