@@ -65,6 +65,60 @@ const CIP_CLIENT = (() => {
       symbol: 'EURJPY', lhs: 'EUR', rhs: 'JPY', base: 'EUR', quote: 'JPY', name: 'EUR:JPY',
       label: 'EUR:JPY (LHS: EUR | RHS: JPY)', spotLag: 2, pipSize: 0.01, quoteDecimals: 3, pipDecimals: 1,
       typicalSpreadPips: { ON: 0.15, TN: 0.15, SN: 0.15, '1W': 0.25, '2W': 0.35, '1M': 0.5, '2M': 0.7, '3M': 0.9, '6M': 1.4, '9M': 1.8, '1Y': 2.3, '2Y': 3.8, '3Y': 5.2, '5Y': 8.0 }
+    },
+    USDEUR: {
+      symbol: 'USDEUR', lhs: 'USD', rhs: 'EUR', base: 'USD', quote: 'EUR', name: 'USD:EUR',
+      label: 'USD:EUR (LHS: USD | RHS: EUR)', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1,
+      isInverted: true, underlyingPair: 'EURUSD',
+      typicalSpreadPips: { ON: 0.1, TN: 0.1, SN: 0.1, '1W': 0.15, '2W': 0.2, '1M': 0.3, '2M': 0.4, '3M': 0.5, '6M': 0.8, '9M': 1.0, '1Y': 1.2, '2Y': 2.0, '3Y': 3.0, '5Y': 5.0 }
+    },
+    GBPEUR: {
+      symbol: 'GBPEUR', lhs: 'GBP', rhs: 'EUR', base: 'GBP', quote: 'EUR', name: 'GBP:EUR',
+      label: 'GBP:EUR (LHS: GBP | RHS: EUR)', spotLag: 2, pipSize: 0.0001, quoteDecimals: 6, pipDecimals: 2,
+      isInverted: true, underlyingPair: 'EURGBP',
+      typicalSpreadPips: { '1M': 0.2 }
+    },
+    USDGBP: {
+      symbol: 'USDGBP', lhs: 'USD', rhs: 'GBP', base: 'USD', quote: 'GBP', name: 'USD:GBP',
+      label: 'USD:GBP (LHS: USD | RHS: GBP)', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1,
+      isInverted: true, underlyingPair: 'GBPUSD',
+      typicalSpreadPips: { '1M': 0.4 }
+    },
+    JPYUSD: {
+      symbol: 'JPYUSD', lhs: 'JPY', rhs: 'USD', base: 'JPY', quote: 'USD', name: 'JPY:USD',
+      label: 'JPY:USD (LHS: JPY | RHS: USD)', spotLag: 2, pipSize: 0.000001, quoteDecimals: 6, pipDecimals: 2,
+      isInverted: true, underlyingPair: 'USDJPY',
+      typicalSpreadPips: { '1M': 0.3 }
+    },
+    CHFUSD: {
+      symbol: 'CHFUSD', lhs: 'CHF', rhs: 'USD', base: 'CHF', quote: 'USD', name: 'CHF:USD',
+      label: 'CHF:USD (LHS: CHF | RHS: USD)', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1,
+      isInverted: true, underlyingPair: 'USDCHF',
+      typicalSpreadPips: { '1M': 0.4 }
+    },
+    CADUSD: {
+      symbol: 'CADUSD', lhs: 'CAD', rhs: 'USD', base: 'CAD', quote: 'USD', name: 'CAD:USD',
+      label: 'CAD:USD (LHS: CAD | RHS: USD)', spotLag: 1, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1,
+      isInverted: true, underlyingPair: 'USDCAD',
+      typicalSpreadPips: { '1M': 0.4 }
+    },
+    USDAUD: {
+      symbol: 'USDAUD', lhs: 'USD', rhs: 'AUD', base: 'USD', quote: 'AUD', name: 'USD:AUD',
+      label: 'USD:AUD (LHS: USD | RHS: AUD)', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1,
+      isInverted: true, underlyingPair: 'AUDUSD',
+      typicalSpreadPips: { '1M': 0.4 }
+    },
+    USDNZD: {
+      symbol: 'USDNZD', lhs: 'USD', rhs: 'NZD', base: 'USD', quote: 'NZD', name: 'USD:NZD',
+      label: 'USD:NZD (LHS: USD | RHS: NZD)', spotLag: 2, pipSize: 0.0001, quoteDecimals: 5, pipDecimals: 1,
+      isInverted: true, underlyingPair: 'NZDUSD',
+      typicalSpreadPips: { '1M': 0.6 }
+    },
+    JPYEUR: {
+      symbol: 'JPYEUR', lhs: 'JPY', rhs: 'EUR', base: 'JPY', quote: 'EUR', name: 'JPY:EUR',
+      label: 'JPY:EUR (LHS: JPY | RHS: EUR)', spotLag: 2, pipSize: 0.000001, quoteDecimals: 6, pipDecimals: 2,
+      isInverted: true, underlyingPair: 'EURJPY',
+      typicalSpreadPips: { '1M': 0.5 }
     }
   };
 
@@ -157,6 +211,11 @@ const CIP_CLIENT = (() => {
       { date: '2022-09-27', rate: 0.9595 }, { date: '2023-10-15', rate: 1.05216 }, { date: '2024-09-15', rate: 1.10884 },
       { date: '2026-08-25', rate: 1.1662 }, { date: '2026-10-28', rate: 1.1119 }
     ],
+    USDEUR: [
+      { date: '2019-10-15', rate: 0.9066 }, { date: '2020-04-15', rate: 0.9166 }, { date: '2022-06-15', rate: 0.9579 },
+      { date: '2022-09-27', rate: 1.0422 }, { date: '2023-10-15', rate: 0.9504 }, { date: '2024-09-15', rate: 0.9018 },
+      { date: '2026-08-25', rate: 0.8566 }, { date: '2026-10-28', rate: 0.8986 }
+    ],
     EURGBP: [
       { date: '2019-10-15', rate: 0.8650 }, { date: '2020-04-15', rate: 0.8750 }, { date: '2022-09-27', rate: 0.8950 },
       { date: '2023-10-15', rate: 0.8660 }, { date: '2024-09-15', rate: 0.8440 }, { date: '2026-08-25', rate: 0.8566 },
@@ -240,10 +299,12 @@ const CIP_CLIENT = (() => {
   }
 
   function getBasisBps(pairKey, dateStr, tenor) {
+    const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+    const lookupKey = pair.underlyingPair || pairKey;
     const sorted = [...HISTORICAL_REGIMES].sort((a, b) => new Date(a.date) - new Date(b.date));
-    let b = sorted[0].basisBps[pairKey] || -15;
+    let b = (sorted[0].basisBps && sorted[0].basisBps[lookupKey] != null) ? sorted[0].basisBps[lookupKey] : -15;
     if (dateStr >= sorted[sorted.length - 1].date) {
-      b = sorted[sorted.length - 1].basisBps[pairKey] || -15;
+      b = (sorted[sorted.length - 1].basisBps && sorted[sorted.length - 1].basisBps[lookupKey] != null) ? sorted[sorted.length - 1].basisBps[lookupKey] : -15;
     } else {
       for (let i = 0; i < sorted.length - 1; i++) {
         const t1 = new Date(sorted[i].date).getTime();
@@ -251,10 +312,15 @@ const CIP_CLIENT = (() => {
         const cur = new Date(dateStr).getTime();
         if (cur >= t1 && cur <= t2) {
           const w = (cur - t1) / (t2 - t1);
-          b = sorted[i].basisBps[pairKey] + w * (sorted[i + 1].basisBps[pairKey] - sorted[i].basisBps[pairKey]);
+          const b1 = (sorted[i].basisBps && sorted[i].basisBps[lookupKey] != null) ? sorted[i].basisBps[lookupKey] : -15;
+          const b2 = (sorted[i + 1].basisBps && sorted[i + 1].basisBps[lookupKey] != null) ? sorted[i + 1].basisBps[lookupKey] : -15;
+          b = b1 + w * (b2 - b1);
           break;
         }
       }
+    }
+    if (pair.isInverted) {
+      b = -b;
     }
     const mults = { ON: 0.2, TN: 0.2, SN: 0.2, '1W': 0.4, '2W': 0.6, '1M': 0.8, '2M': 0.9, '3M': 1.0, '6M': 1.15, '9M': 1.25, '1Y': 1.35, '2Y': 1.45, '3Y': 1.5, '5Y': 1.5 };
     return b * (mults[tenor] || 1.0);
