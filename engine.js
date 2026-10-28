@@ -124,15 +124,28 @@ const CIP_CLIENT = (() => {
       basisBps: { EURUSD: -19, GBPUSD: -10, USDJPY: -42, USDCHF: -14, USDCAD: -5, AUDUSD: -7, EURGBP: 0 }
     },
     {
-      date: '2026-08-25', // Benchmark User Interbank Date
+      date: '2026-01-15', // Normalized Interbank Yield Curves
       rates: {
-        USD: { ON: 3.75, '1M': 3.70, '3M': 3.65, '6M': 3.60, '1Y': 3.55, '2Y': 3.60, '3Y': 3.65, '5Y': 3.75 },
-        EUR: { ON: 2.75, '1M': 2.75, '3M': 2.75, '6M': 2.75, '1Y': 2.75, '2Y': 2.75, '3Y': 2.75, '5Y': 2.75 },
-        GBP: { ON: 1.368, '1M': 1.368, '3M': 1.368, '6M': 1.368, '1Y': 1.368, '2Y': 1.368, '3Y': 1.368, '5Y': 1.368 },
-        JPY: { ON: 0.55, '1M': 0.58, '3M': 0.60, '6M': 0.70, '1Y': 0.85, '2Y': 1.00, '3Y': 1.15, '5Y': 1.35 },
-        CHF: { ON: 1.00, '1M': 1.00, '3M': 1.00, '6M': 0.98, '1Y': 0.95, '2Y': 0.95, '3Y': 1.00, '5Y': 1.10 },
-        CAD: { ON: 3.15, '1M': 3.15, '3M': 3.10, '6M': 3.05, '1Y': 3.05, '2Y': 3.15, '3Y': 3.25, '5Y': 3.40 },
-        AUD: { ON: 3.70, '1M': 3.70, '3M': 3.65, '6M': 3.65, '1Y': 3.65, '2Y': 3.75, '3Y': 3.85, '5Y': 4.05 }
+        USD: { ON: 3.85, '1M': 3.80, '3M': 3.75, '6M': 3.70, '1Y': 3.65, '2Y': 3.70, '3Y': 3.75, '5Y': 3.85 },
+        EUR: { ON: 2.50, '1M': 2.48, '3M': 2.45, '6M': 2.40, '1Y': 2.40, '2Y': 2.45, '3Y': 2.50, '5Y': 2.65 },
+        GBP: { ON: 4.25, '1M': 4.20, '3M': 4.15, '6M': 4.05, '1Y': 3.95, '2Y': 4.00, '3Y': 4.05, '5Y': 4.15 },
+        JPY: { ON: 0.50, '1M': 0.52, '3M': 0.55, '6M': 0.65, '1Y': 0.78, '2Y': 0.95, '3Y': 1.10, '5Y': 1.30 },
+        CHF: { ON: 0.75, '1M': 0.75, '3M': 0.75, '6M': 0.75, '1Y': 0.80, '2Y': 0.85, '3Y': 0.90, '5Y': 1.05 },
+        CAD: { ON: 3.10, '1M': 3.10, '3M': 3.05, '6M': 3.00, '1Y': 3.00, '2Y': 3.10, '3Y': 3.20, '5Y': 3.35 },
+        AUD: { ON: 3.85, '1M': 3.85, '3M': 3.80, '6M': 3.80, '1Y': 3.80, '2Y': 3.85, '3Y': 3.95, '5Y': 4.10 }
+      },
+      basisBps: { EURUSD: -16, GBPUSD: -9, USDJPY: -38, USDCHF: -12, USDCAD: -4, AUDUSD: -6, EURGBP: 0 }
+    },
+    {
+      date: '2026-10-28', // Active Live Market Benchmark
+      rates: {
+        USD: { ON: 3.85, '1M': 3.80, '3M': 3.75, '6M': 3.70, '1Y': 3.65, '2Y': 3.70, '3Y': 3.75, '5Y': 3.85 },
+        EUR: { ON: 2.50, '1M': 2.48, '3M': 2.45, '6M': 2.40, '1Y': 2.40, '2Y': 2.45, '3Y': 2.50, '5Y': 2.65 },
+        GBP: { ON: 4.25, '1M': 4.20, '3M': 4.15, '6M': 4.05, '1Y': 3.95, '2Y': 4.00, '3Y': 4.05, '5Y': 4.15 },
+        JPY: { ON: 0.50, '1M': 0.52, '3M': 0.55, '6M': 0.65, '1Y': 0.78, '2Y': 0.95, '3Y': 1.10, '5Y': 1.30 },
+        CHF: { ON: 0.75, '1M': 0.75, '3M': 0.75, '6M': 0.75, '1Y': 0.80, '2Y': 0.85, '3Y': 0.90, '5Y': 1.05 },
+        CAD: { ON: 3.10, '1M': 3.10, '3M': 3.05, '6M': 3.00, '1Y': 3.00, '2Y': 3.10, '3Y': 3.20, '5Y': 3.35 },
+        AUD: { ON: 3.85, '1M': 3.85, '3M': 3.80, '6M': 3.80, '1Y': 3.80, '2Y': 3.85, '3Y': 3.95, '5Y': 4.10 }
       },
       basisBps: { EURUSD: -15, GBPUSD: -8, USDJPY: -35, USDCHF: -10, USDCAD: -4, AUDUSD: -5, EURGBP: 0 }
     }
@@ -142,32 +155,32 @@ const CIP_CLIENT = (() => {
     EURUSD: [
       { date: '2019-10-15', rate: 1.1030 }, { date: '2020-04-15', rate: 1.0910 }, { date: '2022-06-15', rate: 1.0440 },
       { date: '2022-09-27', rate: 0.9595 }, { date: '2023-10-15', rate: 1.05216 }, { date: '2024-09-15', rate: 1.10884 },
-      { date: '2026-08-25', rate: 1.0740 }, { date: '2026-10-27', rate: 1.0825 }
+      { date: '2026-08-25', rate: 1.1662 }, { date: '2026-10-28', rate: 1.1119 }
     ],
     EURGBP: [
       { date: '2019-10-15', rate: 0.8650 }, { date: '2020-04-15', rate: 0.8750 }, { date: '2022-09-27', rate: 0.8950 },
       { date: '2023-10-15', rate: 0.8660 }, { date: '2024-09-15', rate: 0.8440 }, { date: '2026-08-25', rate: 0.8566 },
-      { date: '2026-10-27', rate: 0.8350 }
+      { date: '2026-10-28', rate: 0.8373 }
     ],
     GBPUSD: [
       { date: '2019-10-15', rate: 1.2780 }, { date: '2020-04-15', rate: 1.2510 }, { date: '2022-09-26', rate: 1.0350 },
-      { date: '2023-10-15', rate: 1.2140 }, { date: '2024-09-15', rate: 1.3125 }, { date: '2026-10-27', rate: 1.2980 }
+      { date: '2023-10-15', rate: 1.2140 }, { date: '2024-09-15', rate: 1.3125 }, { date: '2026-10-28', rate: 1.3275 }
     ],
     USDJPY: [
       { date: '2019-10-15', rate: 108.85 }, { date: '2020-04-15', rate: 107.50 }, { date: '2022-06-15', rate: 134.20 },
-      { date: '2023-10-15', rate: 149.50 }, { date: '2024-09-15', rate: 140.80 }, { date: '2026-10-27', rate: 151.30 }
+      { date: '2023-10-15', rate: 149.50 }, { date: '2024-09-15', rate: 140.80 }, { date: '2026-10-28', rate: 157.90 }
     ],
     USDCHF: [
       { date: '2019-10-15', rate: 0.9980 }, { date: '2020-04-15', rate: 0.9660 }, { date: '2023-10-15', rate: 0.9020 },
-      { date: '2024-09-15', rate: 0.8490 }, { date: '2026-10-27', rate: 0.8650 }
+      { date: '2024-09-15', rate: 0.8490 }, { date: '2026-10-28', rate: 0.8312 }
     ],
     USDCAD: [
       { date: '2019-10-15', rate: 1.3200 }, { date: '2020-04-15', rate: 1.4110 }, { date: '2023-10-15', rate: 1.3650 },
-      { date: '2024-09-15', rate: 1.3580 }, { date: '2026-10-27', rate: 1.3850 }
+      { date: '2024-09-15', rate: 1.3580 }, { date: '2026-10-28', rate: 1.4058 }
     ],
     AUDUSD: [
       { date: '2019-10-15', rate: 0.6750 }, { date: '2020-04-15', rate: 0.6320 }, { date: '2023-10-15', rate: 0.6300 },
-      { date: '2024-09-15', rate: 0.6710 }, { date: '2026-10-27', rate: 0.6580 }
+      { date: '2024-09-15', rate: 0.6710 }, { date: '2026-10-28', rate: 0.6480 }
     ]
   };
 
@@ -416,33 +429,31 @@ const CIP_CLIENT = (() => {
     const baseCurve = getYieldCurve(pair.base, asOf);
     const quoteCurve = getYieldCurve(pair.quote, asOf);
 
-    const bRate = interpolateRate(baseCurve, days);
-    const qRate = interpolateRate(quoteCurve, days);
+    const bRate = (options && options.baseRate != null && !isNaN(parseFloat(options.baseRate)))
+      ? parseFloat(options.baseRate)
+      : interpolateRate(baseCurve, days);
+    const qRate = (options && options.quoteRate != null && !isNaN(parseFloat(options.quoteRate)))
+      ? parseFloat(options.quoteRate)
+      : interpolateRate(quoteCurve, days);
     const xccy = applyXccy ? getBasisBps(pairKey, asOf, days > 90 ? '6M' : '3M') : 0;
 
     const fwd = calculateOutright(spot, bRate, qRate, days, baseCcy.dayCount, quoteCcy.dayCount, xccy);
     const points = (fwd - spot) / pair.pipSize;
     const ann = ((fwd - spot) / spot) * (360 / days) * 100;
 
-    // Calibrated interbank forward liquidity spread
-    let fwdSpreadPips = options && options.spreadPips != null ? options.spreadPips : null;
-    if (fwdSpreadPips == null) {
-      if (pairKey === 'EURGBP') {
-        fwdSpreadPips = 1.031 + (days / 166) * 0.319;
-      } else {
-        fwdSpreadPips = days <= 30 ? 0.4 : (days <= 90 ? 0.6 : (days <= 180 ? 0.9 : 1.3));
-      }
-    }
-    const halfFwdSpread = (fwdSpreadPips * 0.5) * pair.pipSize;
-    const fwdBid = fwd - halfFwdSpread;
-    const fwdAsk = fwd + halfFwdSpread;
+    const pointsSpread = (options && options.spreadPips != null)
+      ? options.spreadPips
+      : (pair.typicalSpreadPips && pair.typicalSpreadPips[days <= 14 ? '1W' : (days <= 45 ? '1M' : (days <= 100 ? '3M' : (days <= 200 ? '6M' : '1Y')))]) || 0.4;
+
+    const pointsBid = points - (pointsSpread * 0.5);
+    const pointsAsk = points + (pointsSpread * 0.5);
 
     const spotSpreadPips = pair.typicalSpreadPips['1M'] || 0.4;
     const spotBid = parseFloat((spot - spotSpreadPips * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
     const spotAsk = parseFloat((spot + spotSpreadPips * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
 
-    const pointsBid = (fwdBid - spotBid) / pair.pipSize;
-    const pointsAsk = (fwdAsk - spotAsk) / pair.pipSize;
+    const fwdBid = spotBid + (pointsBid * pair.pipSize);
+    const fwdAsk = spotAsk + (pointsAsk * pair.pipSize);
 
     return {
       pair: pair.symbol,
@@ -475,35 +486,50 @@ const CIP_CLIENT = (() => {
     const notional = parseFloat(options.notional) || 1000000;
     const customSpot = options.spot != null && parseFloat(options.spot) > 0 ? parseFloat(options.spot) : null;
 
-    const startFwd = brokenDate(pairKey, asOf, windowStart, applyXccy, customSpot);
-    const endFwd = brokenDate(pairKey, asOf, windowEnd, applyXccy, customSpot);
+    const startFwd = brokenDate(pairKey, asOf, windowStart, applyXccy, customSpot, options);
+    const endFwd = brokenDate(pairKey, asOf, windowEnd, applyXccy, customSpot, options);
 
     const isUpward = endFwd.outrightForward >= startFwd.outrightForward;
-    const windowBid = Math.min(startFwd.forwardBid, endFwd.forwardBid);
-    const windowAsk = Math.max(startFwd.forwardAsk, endFwd.forwardAsk);
-    const windowPointsBid = (windowBid - startFwd.spotBid) / pair.pipSize;
-    const windowPointsAsk = (windowAsk - startFwd.spotAsk) / pair.pipSize;
+    const isLHS = (direction === 'LHS' || direction === 'SELL_LHS' || direction === 'SELL_BASE' || direction === 'SELL');
 
     let windowRate;
     let worstCaseDate;
     let worstCaseDays;
     let windowPoints;
+    let windowBid;
+    let windowAsk;
+    let windowPointsBid;
+    let windowPointsAsk;
 
-    // Nomenclature:
-    // LHS = Client SELLS base / BUYS terms @ Bank BID
-    // RHS = Client BUYS base / SELLS terms @ Bank ASK
-    const isLHS = (direction === 'LHS' || direction === 'SELL_LHS' || direction === 'SELL_BASE' || direction === 'SELL');
-
-    if (isLHS) {
-      windowRate = windowBid;
-      worstCaseDate = (endFwd.forwardBid <= startFwd.forwardBid) ? windowEnd : windowStart;
-      worstCaseDays = (endFwd.forwardBid <= startFwd.forwardBid) ? endFwd.days : startFwd.days;
-      windowPoints = windowPointsBid;
+    if (!isUpward) {
+      // REGIME: DEPORT (Downward Sloping, F_end < F_start)
+      // "quand on est en déport la date de fin modifie le taux à la baisse"
+      worstCaseDate = windowEnd;
+      worstCaseDays = endFwd.days;
+      windowBid = endFwd.forwardBid;
+      windowAsk = endFwd.forwardAsk;
+      windowPointsBid = (windowBid - startFwd.spotBid) / pair.pipSize;
+      windowPointsAsk = (windowAsk - startFwd.spotAsk) / pair.pipSize;
+      windowRate = isLHS ? windowBid : windowAsk;
+      windowPoints = isLHS ? windowPointsBid : windowPointsAsk;
     } else {
-      windowRate = windowAsk;
-      worstCaseDate = (endFwd.forwardAsk >= startFwd.forwardAsk) ? windowEnd : windowStart;
-      worstCaseDays = (endFwd.forwardAsk >= startFwd.forwardAsk) ? endFwd.days : startFwd.days;
-      windowPoints = windowPointsAsk;
+      // REGIME: REPORT (Upward Sloping, F_end >= F_start)
+      // "quand on est en report la date de début modifie le taux à la hausse"
+      if (isLHS) {
+        worstCaseDate = windowStart;
+        worstCaseDays = startFwd.days;
+        windowRate = startFwd.forwardBid;
+        windowPoints = (startFwd.forwardBid - startFwd.spotBid) / pair.pipSize;
+      } else {
+        worstCaseDate = windowEnd;
+        worstCaseDays = endFwd.days;
+        windowRate = endFwd.forwardAsk;
+        windowPoints = (endFwd.forwardAsk - startFwd.spotAsk) / pair.pipSize;
+      }
+      windowBid = startFwd.forwardBid;
+      windowAsk = endFwd.forwardAsk;
+      windowPointsBid = (windowBid - startFwd.spotBid) / pair.pipSize;
+      windowPointsAsk = (windowAsk - startFwd.spotAsk) / pair.pipSize;
     }
 
     const benchmarkEndRate = isLHS ? endFwd.forwardBid : endFwd.forwardAsk;
@@ -519,7 +545,7 @@ const CIP_CLIENT = (() => {
     let cur = new Date(sDate);
     while (cur <= eDate) {
       const dStr = cur.toISOString().split('T')[0];
-      const sub = brokenDate(pairKey, asOf, dStr, applyXccy, customSpot);
+      const sub = brokenDate(pairKey, asOf, dStr, applyXccy, customSpot, options);
       windowSchedule.push({
         date: dStr,
         days: sub.days,
@@ -630,6 +656,93 @@ const CIP_CLIENT = (() => {
     return { pair: pairKey, tenor, series };
   }
 
+  const clientSpotCache = new Map();
+
+  async function fetchLiveSpot(pairKey, dateStr, customSpot = null, forceRefresh = false) {
+    if (customSpot != null && !isNaN(parseFloat(customSpot)) && parseFloat(customSpot) > 0) {
+      return getSpotBidAsk(pairKey, dateStr, customSpot);
+    }
+    const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+    const cacheKey = `${pairKey}_${dateStr}`;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isToday = (dateStr >= todayStr);
+
+    if (!forceRefresh && clientSpotCache.has(cacheKey)) {
+      const cached = clientSpotCache.get(cacheKey);
+      if (!isToday || (Date.now() - cached.timestamp < 30000)) {
+        return cached;
+      }
+    }
+
+    let fetchedRate = null;
+    let source = 'INTERBANK_BASELINE';
+    let isLive = false;
+
+    // 1. Try local server API if running
+    try {
+      const res = await fetch(`/api/spot?pair=${pairKey}&date=${dateStr}${forceRefresh ? '&refresh=true' : ''}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.mid > 0) {
+          clientSpotCache.set(cacheKey, { ...data, timestamp: Date.now() });
+          return data;
+        }
+      }
+    } catch (e) {}
+
+    // 2. Direct browser fetch from open.er-api.com (CORS enabled)
+    if (isToday) {
+      try {
+        const res = await fetch(`https://open.er-api.com/v6/latest/${pair.base}`);
+        if (res.ok) {
+          const d = await res.json();
+          if (d.rates && d.rates[pair.quote]) {
+            fetchedRate = parseFloat(d.rates[pair.quote].toFixed(pair.quoteDecimals));
+            source = 'OPEN_EXCHANGE_LIVE';
+            isLive = true;
+          }
+        }
+      } catch (e) {}
+    } else {
+      // Historical ECB fixing
+      try {
+        const res = await fetch(`https://api.frankfurter.dev/v1/${dateStr}?base=${pair.base}`);
+        if (res.ok) {
+          const d = await res.json();
+          if (d.rates && d.rates[pair.quote]) {
+            fetchedRate = parseFloat(d.rates[pair.quote].toFixed(pair.quoteDecimals));
+            source = 'ECB_HISTORICAL_FIXING';
+            isLive = false;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!fetchedRate) {
+      fetchedRate = getSpotRate(pairKey, dateStr, null);
+    }
+
+    const spotSpread = pair.typicalSpreadPips['1M'] || 0.4;
+    const spotBid = parseFloat((fetchedRate - spotSpread * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
+    const spotAsk = parseFloat((fetchedRate + spotSpread * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
+
+    const result = {
+      pair: pairKey,
+      date: dateStr,
+      rate: fetchedRate,
+      mid: fetchedRate,
+      bid: spotBid,
+      ask: spotAsk,
+      spreadPips: spotSpread,
+      source,
+      isLive,
+      timestamp: Date.now()
+    };
+
+    clientSpotCache.set(cacheKey, result);
+    return result;
+  }
+
   function getSpotBidAsk(pairKey, dateStr, customSpot = null, direction = 'RHS') {
     const pair = PAIRS[pairKey] || PAIRS.EURUSD;
     const spotMid = getSpotRate(pairKey, dateStr, customSpot);
@@ -651,6 +764,8 @@ const CIP_CLIENT = (() => {
     STANDARD_TENORS,
     getSpotRate,
     getSpotBidAsk,
+    fetchLiveSpot,
+    getYieldCurve,
     computeLadder,
     compareCurves,
     brokenDate,
