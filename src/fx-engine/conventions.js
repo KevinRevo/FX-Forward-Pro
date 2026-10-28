@@ -149,6 +149,159 @@ const STANDARD_PAIRS = {
     pipDecimals: 1,
     yahooTicker: 'EURJPY=X',
     typicalSpreadPips: { ON: 0.15, TN: 0.15, SN: 0.15, '1W': 0.25, '2W': 0.35, '1M': 0.5, '2M': 0.7, '3M': 0.9, '6M': 1.4, '9M': 1.8, '1Y': 2.3, '2Y': 3.8, '3Y': 5.2, '5Y': 8.0 }
+  },
+  USDEUR: {
+    symbol: 'USDEUR',
+    lhs: 'USD',
+    rhs: 'EUR',
+    base: 'USD',
+    quote: 'EUR',
+    name: 'USD:EUR',
+    label: 'USD:EUR (LHS: USD | RHS: EUR)',
+    spotLag: 2,
+    pipSize: 0.0001,
+    quoteDecimals: 5,
+    pipDecimals: 1,
+    yahooTicker: 'EURUSD=X',
+    isInverted: true,
+    underlyingPair: 'EURUSD',
+    typicalSpreadPips: { ON: 0.1, TN: 0.1, SN: 0.1, '1W': 0.15, '2W': 0.2, '1M': 0.3, '2M': 0.4, '3M': 0.5, '6M': 0.8, '9M': 1.0, '1Y': 1.2, '2Y': 2.0, '3Y': 3.0, '5Y': 5.0 }
+  },
+  GBPEUR: {
+    symbol: 'GBPEUR',
+    lhs: 'GBP',
+    rhs: 'EUR',
+    base: 'GBP',
+    quote: 'EUR',
+    name: 'GBP:EUR',
+    label: 'GBP:EUR (LHS: GBP | RHS: EUR)',
+    spotLag: 2,
+    pipSize: 0.0001,
+    quoteDecimals: 6,
+    pipDecimals: 2,
+    yahooTicker: 'EURGBP=X',
+    isInverted: true,
+    underlyingPair: 'EURGBP',
+    typicalSpreadPips: { '1M': 0.2 }
+  },
+  USDGBP: {
+    symbol: 'USDGBP',
+    lhs: 'USD',
+    rhs: 'GBP',
+    base: 'USD',
+    quote: 'GBP',
+    name: 'USD:GBP',
+    label: 'USD:GBP (LHS: USD | RHS: GBP)',
+    spotLag: 2,
+    pipSize: 0.0001,
+    quoteDecimals: 5,
+    pipDecimals: 1,
+    yahooTicker: 'GBPUSD=X',
+    isInverted: true,
+    underlyingPair: 'GBPUSD',
+    typicalSpreadPips: { '1M': 0.4 }
+  },
+  JPYUSD: {
+    symbol: 'JPYUSD',
+    lhs: 'JPY',
+    rhs: 'USD',
+    base: 'JPY',
+    quote: 'USD',
+    name: 'JPY:USD',
+    label: 'JPY:USD (LHS: JPY | RHS: USD)',
+    spotLag: 2,
+    pipSize: 0.000001,
+    quoteDecimals: 6,
+    pipDecimals: 2,
+    yahooTicker: 'USDJPY=X',
+    isInverted: true,
+    underlyingPair: 'USDJPY',
+    typicalSpreadPips: { '1M': 0.3 }
+  },
+  CHFUSD: {
+    symbol: 'CHFUSD',
+    lhs: 'CHF',
+    rhs: 'USD',
+    base: 'CHF',
+    quote: 'USD',
+    name: 'CHF:USD',
+    label: 'CHF:USD (LHS: CHF | RHS: USD)',
+    spotLag: 2,
+    pipSize: 0.0001,
+    quoteDecimals: 5,
+    pipDecimals: 1,
+    yahooTicker: 'USDCHF=X',
+    isInverted: true,
+    underlyingPair: 'USDCHF',
+    typicalSpreadPips: { '1M': 0.4 }
+  },
+  CADUSD: {
+    symbol: 'CADUSD',
+    lhs: 'CAD',
+    rhs: 'USD',
+    base: 'CAD',
+    quote: 'USD',
+    name: 'CAD:USD',
+    label: 'CAD:USD (LHS: CAD | RHS: USD)',
+    spotLag: 1,
+    pipSize: 0.0001,
+    quoteDecimals: 5,
+    pipDecimals: 1,
+    yahooTicker: 'CAD=X',
+    isInverted: true,
+    underlyingPair: 'USDCAD',
+    typicalSpreadPips: { '1M': 0.4 }
+  },
+  USDAUD: {
+    symbol: 'USDAUD',
+    lhs: 'USD',
+    rhs: 'AUD',
+    base: 'USD',
+    quote: 'AUD',
+    name: 'USD:AUD',
+    label: 'USD:AUD (LHS: USD | RHS: AUD)',
+    spotLag: 2,
+    pipSize: 0.0001,
+    quoteDecimals: 5,
+    pipDecimals: 1,
+    yahooTicker: 'AUDUSD=X',
+    isInverted: true,
+    underlyingPair: 'AUDUSD',
+    typicalSpreadPips: { '1M': 0.4 }
+  },
+  USDNZD: {
+    symbol: 'USDNZD',
+    lhs: 'USD',
+    rhs: 'NZD',
+    base: 'USD',
+    quote: 'NZD',
+    name: 'USD:NZD',
+    label: 'USD:NZD (LHS: USD | RHS: NZD)',
+    spotLag: 2,
+    pipSize: 0.0001,
+    quoteDecimals: 5,
+    pipDecimals: 1,
+    yahooTicker: 'NZDUSD=X',
+    isInverted: true,
+    underlyingPair: 'NZDUSD',
+    typicalSpreadPips: { '1M': 0.6 }
+  },
+  JPYEUR: {
+    symbol: 'JPYEUR',
+    lhs: 'JPY',
+    rhs: 'EUR',
+    base: 'JPY',
+    quote: 'EUR',
+    name: 'JPY:EUR',
+    label: 'JPY:EUR (LHS: JPY | RHS: EUR)',
+    spotLag: 2,
+    pipSize: 0.000001,
+    quoteDecimals: 6,
+    pipDecimals: 2,
+    yahooTicker: 'EURJPY=X',
+    isInverted: true,
+    underlyingPair: 'EURJPY',
+    typicalSpreadPips: { '1M': 0.5 }
   }
 };
 
@@ -161,9 +314,21 @@ const STANDARD_TENORS = [
   '1Y', '2Y', '3Y', '5Y'
 ];
 
+function getEffectivePair(pairKey, direction = 'LHS') {
+  const isRHS = (direction === 'RHS' || direction === 'BUY_RHS' || direction === 'BUY_BASE');
+  const baseKey = (pairKey || 'EURUSD').toUpperCase().replace(/[\/:]/g, '');
+  const p = PAIRS[baseKey] || PAIRS.EURUSD;
+  if (!isRHS) return p;
+
+  const invSymbol = `${p.quote}${p.base}`;
+  if (PAIRS[invSymbol]) return PAIRS[invSymbol];
+  return p;
+}
+
 module.exports = {
   CURRENCIES,
   PAIRS,
   STANDARD_PAIRS,
-  STANDARD_TENORS
+  STANDARD_TENORS,
+  getEffectivePair
 };
