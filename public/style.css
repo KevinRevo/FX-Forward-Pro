@@ -1368,3 +1368,105 @@ body {
 .spot-bd-sep {
   color: #2b3d50;
 }
+
+
+/* Live Interbank Indicator & CIP Rate Strip */
+.live-pulse-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(46, 213, 115, 0.15);
+  color: #2ed573;
+  border: 1px solid rgba(46, 213, 115, 0.4);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.live-pulse-badge.historical {
+  background: rgba(255, 177, 66, 0.15);
+  color: #ffb142;
+  border-color: rgba(255, 177, 66, 0.4);
+}
+.live-btn {
+  background: rgba(255, 71, 87, 0.18) !important;
+  color: #ff4757 !important;
+  border-color: #ff4757 !important;
+  font-weight: 700 !important;
+}
+.live-btn:hover {
+  background: #ff4757 !important;
+  color: #000 !important;
+}
+
+.cip-rate-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  background: #0a0f16;
+  border: 1px solid #1e293b;
+  border-left: 3px solid #ff9f1a;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin: 10px 0;
+  font-size: 11px;
+}
+.cip-strip-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cip-strip-lbl {
+  color: #8395a7;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.cip-strip-val {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+}
+.cip-strip-val.highlight {
+  color: #2ed573;
+}
+.cip-strip-val.negative {
+  color: #ff4757;
+}
+.cip-strip-source {
+  font-size: 10px;
+  font-weight: 600;
+  color: #2ed573;
+}
+.cip-strip-source.historical {
+  color: #ffb142;
+}
+
+.rate-override-toggle-box {
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+.btn-text-toggle {
+  background: none;
+  border: none;
+  color: #576574;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 2px 0;
+  text-decoration: underline;
+  transition: color 0.15s;
+}
+.btn-text-toggle:hover {
+  color: #ff9f1a;
+}
+.custom-rates-drawer {
+  background: #0f172a;
+  border: 1px dashed #334155;
+  border-radius: 4px;
+  padding: 10px;
+  margin-top: 6px;
+}
