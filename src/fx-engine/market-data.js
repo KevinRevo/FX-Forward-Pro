@@ -149,6 +149,16 @@ const BASELINE_SPOTS = {
     { date: '2026-08-25', rate: 1.1662 },
     { date: '2026-10-28', rate: 1.1119 }
   ],
+  USDEUR: [
+    { date: '2019-10-15', rate: 0.9066 },
+    { date: '2020-04-15', rate: 0.9166 },
+    { date: '2022-06-15', rate: 0.9579 },
+    { date: '2022-09-27', rate: 1.0422 },
+    { date: '2023-10-15', rate: 0.9504 },
+    { date: '2024-09-15', rate: 0.9018 },
+    { date: '2026-08-25', rate: 0.8566 },
+    { date: '2026-10-28', rate: 0.8986 }
+  ],
   EURGBP: [
     { date: '2019-10-15', rate: 0.8650 },
     { date: '2020-04-15', rate: 0.8750 },
@@ -529,7 +539,7 @@ function enrichCurve(raw) {
  */
 function getCrossCurrencyBasisBps(pairKey, dateStr, tenor = '3M') {
   const pair = PAIRS[pairKey] || PAIRS.EURUSD;
-  const standardKey = pair.standardPairKey || pairKey;
+  const standardKey = pair.standardPairKey || pair.underlyingPair || pairKey;
   const isInv = pair.isInverted;
 
   const sortedRegimes = [...HISTORICAL_REGIMES].sort((a, b) => new Date(a.date) - new Date(b.date));
