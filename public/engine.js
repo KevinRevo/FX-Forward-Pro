@@ -678,35 +678,86 @@ const CIP_CLIENT = (() => {
     let source = 'INTERBANK_BASELINE';
     let isLive = false;
 
-    // 1. Try local server API if running
-    try {
-      const res = await fetch(`/api/spot?pair=${pairKey}&date=${dateStr}${forceRefresh ? '&refresh=true' : ''}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.mid > 0) {
-          clientSpotCache.set(cacheKey, { ...data, timestamp: Date.now() });
-          return data;
-        }
-      }
-    } catch (e) {}
-
-    // 2. Direct browser fetch from open.er-api.com (CORS enabled)
+    // 1. Direct browser fetch from TradingView (CORS enabled, Real-time Interbank Streaming)
     if (isToday) {
       try {
-        const res = await fetch(`https://open.er-api.com/v6/latest/${pair.base}`);
-        if (res.ok) {
-          const d = await res.json();
-          if (d.rates && d.rates[pair.quote]) {
-            fetchedRate = parseFloat(d.rates[pair.quote].toFixed(pair.quoteDecimals));
-            source = 'OPEN_EXCHANGE_LIVE';
+        const tvRes = await fetch('https://scanner.tradingview.com/forex/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            symbols: { tickers: [`FX_IDC:${pairKey}`, `FX:${pairKey}`, `OANDA:${pairKey}`] },
+            columns: ['close', 'bid', 'ask']
+          }),
+          signal: AbortSignal.timeout(3500)
+        });
+        if (tvRes.ok) {
+          const tvJson = await tvRes.json();
+          const item = tvJson.data && tvJson.data.find(d => d && d.d && d.d[0] > 0);
+          if (item) {
+            const tvClose = item.d[0];
+            const tvBid = (item.d[1] && item.d[1] > 0) ? item.d[1] : null;
+            const tvAsk = (item.d[2] && item.d[2] > 0) ? item.d[2] : null;
+
+            const spotMid = parseFloat(tvClose.toFixed(pair.quoteDecimals));
+            const spreadPips = pair.typicalSpreadPips['1M'] || 0.4;
+            const spotBid = tvBid != null ? parseFloat(tvBid.toFixed(pair.quoteDecimals)) : parseFloat((spotMid - spreadPips * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
+            const spotAsk = tvAsk != null ? parseFloat(tvAsk.toFixed(pair.quoteDecimals)) : parseFloat((spotMid + spreadPips * 0.5 * pair.pipSize).toFixed(pair.quoteDecimals));
+
+            const result = {
+              pair: pairKey,
+              date: dateStr,
+              rate: spotMid,
+              mid: spotMid,
+              bid: spotBid,
+              ask: spotAsk,
+              spreadPips: parseFloat(((spotAsk - spotBid) / pair.pipSize).toFixed(2)),
+              source: 'TRADINGVIEW_LIVE',
+              isLive: true,
+              timestamp: Date.now()
+            };
+            clientSpotCache.set(cacheKey, result);
+            return result;
+          }
+        }
+      } catch (e) {}
+
+      // 2. Direct browser fetch from Coinbase (CORS enabled)
+      try {
+        const cbRes = await fetch(`https://api.coinbase.com/v2/exchange-rates?currency=${pair.base}`, {
+          signal: AbortSignal.timeout(3000)
+        });
+        if (cbRes.ok) {
+          const cbJson = await cbRes.json();
+          const r = cbJson.data && cbJson.data.rates && cbJson.data.rates[pair.quote];
+          if (r && parseFloat(r) > 0) {
+            fetchedRate = parseFloat(parseFloat(r).toFixed(pair.quoteDecimals));
+            source = 'COINBASE_LIVE';
             isLive = true;
           }
         }
       } catch (e) {}
+
+      // 3. Try local server API if running
+      if (!fetchedRate) {
+        try {
+          const res = await fetch(`/api/spot?pair=${pairKey}&date=${dateStr}${forceRefresh ? '&refresh=true' : ''}`, {
+            signal: AbortSignal.timeout(2000)
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.mid > 0) {
+              clientSpotCache.set(cacheKey, { ...data, timestamp: Date.now() });
+              return data;
+            }
+          }
+        } catch (e) {}
+      }
     } else {
       // Historical ECB fixing
       try {
-        const res = await fetch(`https://api.frankfurter.dev/v1/${dateStr}?base=${pair.base}`);
+        const res = await fetch(`https://api.frankfurter.dev/v1/${dateStr}?base=${pair.base}`, {
+          signal: AbortSignal.timeout(3500)
+        });
         if (res.ok) {
           const d = await res.json();
           if (d.rates && d.rates[pair.quote]) {
