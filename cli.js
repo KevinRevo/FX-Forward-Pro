@@ -59,7 +59,9 @@ function parseArgs() {
     history: null,
     from: '2023-01-01',
     to: '2024-01-01',
-    noXccy: false
+    noXccy: false,
+    baseRate: null,
+    quoteRate: null
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -70,6 +72,10 @@ function parseArgs() {
       options.spot = parseFloat(args[++i]);
     } else if (args[i] === '--date' && args[i + 1]) {
       options.date = args[++i];
+    } else if (args[i] === '--baseRate' && args[i + 1]) {
+      options.baseRate = parseFloat(args[++i]);
+    } else if (args[i] === '--quoteRate' && args[i + 1]) {
+      options.quoteRate = parseFloat(args[++i]);
     } else if (args[i] === '--compare' && args[i + 1] && args[i + 2]) {
       options.compare = [args[++i], args[++i]];
     } else if (args[i] === '--broken' && args[i + 1]) {
@@ -149,7 +155,7 @@ async function runLadder(pairKey, dateStr, noXccy) {
   console.log(`${C.dim}Tip: Run with reverse direction (e.g. USDEUR) or --window YYYY-MM-DD YYYY-MM-DD for window forward.${C.reset}\n`);
 }
 
-async function runWindow(pairKey, tradeDate, winStart, winEnd, direction, notional, noXccy, customSpot) {
+async function runWindow(pairKey, tradeDate, winStart, winEnd, direction, notional, noXccy, customSpot, baseRate, quoteRate) {
   printBanner();
   const pair = PAIRS[pairKey] || PAIRS.EURUSD;
   console.log(`${C.dim}Pricing Window Forward (Flexible Delivery) for ${pair.name}...${C.reset}\n`);
@@ -157,7 +163,9 @@ async function runWindow(pairKey, tradeDate, winStart, winEnd, direction, notion
   const res = await calculateWindowForward(pairKey, tradeDate, winStart, winEnd, direction, {
     applyXccy: !noXccy,
     notional,
-    spot: customSpot
+    spot: customSpot,
+    baseRate,
+    quoteRate
   });
 
   console.log(`${C.white}${C.bold}PAIR: ${C.amber}${res.pairName} (${res.pair})${C.reset}`);
@@ -304,7 +312,7 @@ async function main() {
   const options = parseArgs();
   try {
     if (options.window) {
-      await runWindow(options.pair, options.date, options.window[0], options.window[1], options.direction, options.notional, options.noXccy, options.spot);
+      await runWindow(options.pair, options.date, options.window[0], options.window[1], options.direction, options.notional, options.noXccy, options.spot, options.baseRate, options.quoteRate);
     } else if (options.compare) {
       await runCompare(options.pair, options.compare[0], options.compare[1], options.noXccy);
     } else if (options.broken) {
