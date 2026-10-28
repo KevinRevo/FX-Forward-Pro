@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>FX FORWARD PRO | Interbank CIP &amp; Window Forward Analytics</title>
-  <link rel="stylesheet" href="style.css?v=20261027_6">
+  <link rel="stylesheet" href="style.css?v=20261028_1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -41,20 +41,21 @@
     <!-- Active Security Banner -->
     <div class="security-banner">
       <div class="sec-left">
-        <span class="sec-pair" id="active-pair-name">EUR/GBP</span>
-        <span class="lhs-rhs-badge" id="banner-lhs-rhs-badge">EUR/GBP</span>
+        <span class="sec-pair" id="active-pair-name">EUR/USD</span>
+        <span class="lhs-rhs-badge" id="banner-lhs-rhs-badge">EUR/USD</span>
+        <span class="live-pulse-badge" id="banner-live-badge">🟢 LIVE</span>
         <span class="sec-spot-label">SPOT:</span>
-        <span class="sec-tag">LHS (Bid): <strong class="green-text" id="banner-spot-bid">0.85659</strong></span>
+        <span class="sec-tag">LHS (Bid): <strong class="green-text" id="banner-spot-bid">--</strong></span>
         <span class="sec-spot-slash">/</span>
-        <span class="sec-tag">RHS (Ask): <strong class="amber-text" id="banner-spot-ask">0.85661</strong></span>
-        <span class="sec-spot-mid" id="banner-spot-mid">(Mid: 0.85660)</span>
+        <span class="sec-tag">RHS (Ask): <strong class="amber-text" id="banner-spot-ask">--</strong></span>
+        <span class="sec-spot-mid" id="banner-spot-mid">(Mid: --)</span>
       </div>
       <div class="sec-right">
-        <span class="sec-tag">Base (<span id="banner-base-code">EUR</span>): <span id="banner-base-rate" class="rate-val">€STR 2.75%</span> (ACT/360)</span>
+        <span class="sec-tag">Base (<span id="banner-base-code">EUR</span>): <span id="banner-base-rate" class="rate-val">€STR 2.50%</span> (ACT/360)</span>
         <span class="sec-separator">|</span>
-        <span class="sec-tag">Terms (<span id="banner-quote-code">GBP</span>): <span id="banner-quote-rate" class="rate-val">SONIA 1.37%</span> (ACT/365)</span>
+        <span class="sec-tag">Terms (<span id="banner-quote-code">USD</span>): <span id="banner-quote-rate" class="rate-val">SOFR 3.75%</span> (ACT/360)</span>
         <span class="sec-separator">|</span>
-        <span class="sec-tag">XCCY BASIS: <span id="banner-xccy-basis" class="rate-val">0.0 bps</span></span>
+        <span class="sec-tag">XCCY BASIS: <span id="banner-xccy-basis" class="rate-val">-15.0 bps</span></span>
       </div>
     </div>
 
@@ -100,19 +101,58 @@
             <div class="form-row-dual">
               <div class="form-row">
                 <label for="fxfa-asof-date">Trade Date (As-Of):</label>
-                <input type="date" id="fxfa-asof-date" class="bbg-input" value="2026-08-25">
+                <input type="date" id="fxfa-asof-date" class="bbg-input" autocomplete="off">
               </div>
               <div class="form-row">
                 <label for="fxfa-spot-input">Spot Rate <span id="lbl-spot-side" class="spot-side-indicator">(Mid Rate)</span>:</label>
                 <div class="spot-input-wrap">
-                  <input type="text" inputmode="decimal" id="fxfa-spot-input" class="bbg-input" value="0.856600" placeholder="e.g. 0.8566 or 1.0740" autocomplete="off" spellcheck="false">
+                  <input type="text" inputmode="decimal" id="fxfa-spot-input" class="bbg-input" placeholder="Fetching live spot..." autocomplete="off" spellcheck="false">
+                  <button type="button" id="fxfa-refresh-spot-btn" class="bbg-action-btn-mini live-btn" title="Refresh Live Market Tick">Live Tick</button>
                   <button type="button" id="fxfa-reset-spot-btn" class="bbg-action-btn-mini" title="Fetch default market spot for this date & pair">Auto</button>
                 </div>
                 <div class="spot-live-breakdown" id="spot-live-breakdown">
-                  <span class="spot-bd-item" id="bd-item-lhs">Spot LHS (Bid): <strong class="green-text" id="input-spot-lhs">0.85659</strong></span>
+                  <span class="spot-bd-item" id="bd-item-lhs">Spot LHS (Bid): <strong class="green-text" id="input-spot-lhs">--</strong></span>
                   <span class="spot-bd-sep">|</span>
-                  <span class="spot-bd-item" id="bd-item-rhs">Spot RHS (Ask): <strong class="amber-text" id="input-spot-rhs">0.85661</strong></span>
+                  <span class="spot-bd-item" id="bd-item-rhs">Spot RHS (Ask): <strong class="amber-text" id="input-spot-rhs">--</strong></span>
                 </div>
+              </div>
+            </div>
+
+            <!-- Interbank CIP Benchmark Rate Strip -->
+            <div class="cip-rate-strip" id="cip-rate-strip">
+              <div class="cip-strip-col">
+                <span class="cip-strip-lbl">Base (<span id="strip-base-lbl">EUR / €STR</span>):</span>
+                <span class="cip-strip-val" id="strip-base-val">--%</span>
+              </div>
+              <div class="cip-strip-col">
+                <span class="cip-strip-lbl">Terms (<span id="strip-quote-lbl">USD / SOFR</span>):</span>
+                <span class="cip-strip-val" id="strip-quote-val">--%</span>
+              </div>
+              <div class="cip-strip-col">
+                <span class="cip-strip-lbl">Net Rate Diff (<span id="strip-diff-sym">Δr</span>):</span>
+                <span class="cip-strip-val highlight" id="strip-diff-val">--</span>
+              </div>
+              <div class="cip-strip-col">
+                <span class="cip-strip-lbl">Feed Status:</span>
+                <span class="cip-strip-source" id="strip-feed-source">🟢 LIVE INTERBANK</span>
+              </div>
+            </div>
+
+            <!-- Optional Rate Customization Toggle -->
+            <div class="rate-override-toggle-box">
+              <button type="button" id="btn-toggle-custom-rates" class="btn-text-toggle">⚙️ Customize Interbank Rates (Advanced CIP)</button>
+              <div id="box-custom-rates" class="custom-rates-drawer" style="display: none;">
+                <div class="form-row-dual">
+                  <div class="form-row">
+                    <label for="fxfa-custom-base-rate">Custom Base Rate (<span id="lbl-custom-base">EUR</span> %):</label>
+                    <input type="text" inputmode="decimal" id="fxfa-custom-base-rate" class="bbg-input" placeholder="Auto (Market Curve)">
+                  </div>
+                  <div class="form-row">
+                    <label for="fxfa-custom-quote-rate">Custom Terms Rate (<span id="lbl-custom-quote">USD</span> %):</label>
+                    <input type="text" inputmode="decimal" id="fxfa-custom-quote-rate" class="bbg-input" placeholder="Auto (Market Curve)">
+                  </div>
+                </div>
+                <button type="button" id="btn-reset-rates" class="bbg-action-btn-mini" style="margin-top: 4px;">↺ Reset to Market Curves</button>
               </div>
             </div>
 
@@ -120,18 +160,18 @@
             <div class="window-dates-row" id="row-window-dates">
               <div class="form-row">
                 <label for="fxfa-window-start">Window Start (Open Date):</label>
-                <input type="date" id="fxfa-window-start" class="bbg-input" value="2026-11-02">
+                <input type="date" id="fxfa-window-start" class="bbg-input" autocomplete="off">
               </div>
               <div class="form-row">
                 <label for="fxfa-window-end">Window End (Expiry Date):</label>
-                <input type="date" id="fxfa-window-end" class="bbg-input" value="2027-02-09">
+                <input type="date" id="fxfa-window-end" class="bbg-input" autocomplete="off">
               </div>
             </div>
 
             <!-- Single Date (Fixed Forward Mode) -->
             <div class="form-row" id="row-fixed-date" style="display: none;">
               <label for="fxfa-settle-date">Fixed Settlement Date:</label>
-              <input type="date" id="fxfa-settle-date" class="bbg-input" value="2026-11-02">
+              <input type="date" id="fxfa-settle-date" class="bbg-input" autocomplete="off">
             </div>
 
             <!-- Quotation Side: LHS (Client sells base / buys quote @ Bid) vs RHS (Client buys base / sells quote @ Ask) -->
@@ -396,7 +436,7 @@
 
           <div class="control-group">
             <label for="frd-date-input">AS OF (TRADE DATE):</label>
-            <input type="date" id="frd-date-input" class="bbg-input" value="2026-08-25">
+            <input type="date" id="frd-date-input" class="bbg-input" autocomplete="off">
             <div class="quick-dates">
               <button class="quick-date-btn" data-date="2026-08-25">25 Aug 2026</button>
               <button class="quick-date-btn" data-date="2023-10-15">Oct 2023</button>
@@ -576,7 +616,7 @@
     </footer>
   </div>
 
-  <script src="engine.js?v=20261027_6"></script>
-  <script src="app.js?v=20261027_6"></script>
+  <script src="engine.js?v=20261028_1"></script>
+  <script src="app.js?v=20261028_1"></script>
 </body>
 </html>
