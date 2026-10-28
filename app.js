@@ -191,14 +191,15 @@ const BENCHMARK_PRESETS = [
     description: 'Live USD/JPY showing forward discount driven by US vs Japan yield gap.'
   },
   {
-    id: 'eurgbp-benchmark',
-    title: 'EUR:GBP Benchmark (25/08/26 Spot 0.8566)',
-    pair: 'EURGBP',
+    id: 'user-case-2026',
+    title: '⭐ EUR:USD RHS Benchmark (25/08/26 Spot 0.8566)',
+    pair: 'EURUSD',
+    direction: 'RHS',
     date: '2026-08-25',
     spot: 0.8566,
     winStart: '2026-11-02',
     winEnd: '2027-02-09',
-    description: 'Historical comparison: Window 02/11/26 to 09/02/27 at Spot 0.8566.'
+    description: 'Historical comparison: EUR:USD RHS quoted in USD:EUR @ 0.8566, Window 02/11/26 to 09/02/27.'
   },
   {
     id: 'fed-peak-2023',
@@ -221,9 +222,51 @@ setInterval(updateClock, 1000);
 updateClock();
 
 function getPairMeta(symbol) {
-  return AVAILABLE_PAIRS.find(p => p.symbol === symbol) || AVAILABLE_PAIRS[0] || {
-    symbol: 'EURGBP', lhs: 'EUR', rhs: 'GBP', quoteDecimals: 6, pipDecimals: 2, pipSize: 0.0001
+  if (!symbol) return AVAILABLE_PAIRS[0];
+  const clean = symbol.toUpperCase().replace(/[\/:]/g, '');
+  const found = AVAILABLE_PAIRS.find(p => p.symbol === clean) ||
+                (typeof CIP_CLIENT !== 'undefined' && CIP_CLIENT.PAIRS && CIP_CLIENT.PAIRS[clean]);
+  if (found) return found;
+
+  // Check if inverted pair
+  const direct = AVAILABLE_PAIRS.find(p => clean === `${p.quote}${p.base}`) ||
+                 (typeof CIP_CLIENT !== 'undefined' && CIP_CLIENT.PAIRS && Object.values(CIP_CLIENT.PAIRS).find(p => clean === `${p.quote}${p.base}`));
+  if (direct) {
+    return {
+      symbol: clean,
+      lhs: direct.rhs,
+      rhs: direct.lhs,
+      base: direct.quote,
+      quote: direct.base,
+      name: `${direct.rhs}:${direct.lhs}`,
+      label: `${direct.rhs}:${direct.lhs}`,
+      quoteDecimals: direct.quoteDecimals,
+      pipDecimals: direct.pipDecimals,
+      pipSize: direct.pipSize,
+      typicalSpreadPips: direct.typicalSpreadPips,
+      isInverted: true,
+      underlyingPair: direct.symbol
+    };
+  }
+
+  return AVAILABLE_PAIRS[0] || {
+    symbol: 'EURUSD', lhs: 'EUR', rhs: 'USD', base: 'EUR', quote: 'USD', name: 'EUR:USD', quoteDecimals: 5, pipDecimals: 1, pipSize: 0.0001
   };
+}
+
+function getInvertedPairKey(pairKey) {
+  const p = getPairMeta(pairKey);
+  const base = p.base || p.lhs;
+  const quote = p.quote || p.rhs;
+  return `${quote}${base}`;
+}
+
+function getEffectivePairMeta(pairKey, direction) {
+  const isLHS = (direction === 'LHS' || direction === 'SELL_LHS' || direction === 'SELL');
+  if (isLHS) {
+    return getPairMeta(pairKey);
+  }
+  return getPairMeta(getInvertedPairKey(pairKey));
 }
 
 function syncAllSelects(pairSymbol) {
@@ -246,19 +289,19 @@ function syncAllSelects(pairSymbol) {
     if (lblCustomQuote) lblCustomQuote.textContent = quote;
 
     // Institutional Nomenclature:
-    // LHS = Client SELLS base / BUYS quote (Executed at Bank BID)
-    // RHS = Client BUYS base / SELLS quote (Executed at Bank ASK)
-    const curVal = fxfaDirection ? fxfaDirection.value : 'RHS';
+    // LHS = Client SELLS base / BUYS quote (Quoted in Base:Terms, e.g. EUR:USD)
+    // RHS = Client BUYS base / SELLS quote (Quoted in Terms:Base, e.g. USD:EUR)
+    const curVal = fxfaDirection ? fxfaDirection.value : 'LHS';
     if (fxfaDirection) {
       fxfaDirection.innerHTML = `
-        <option value="LHS">LHS — Client Sells ${base} / Buys ${quote} (Bank Buys @ Bid)</option>
-        <option value="RHS">RHS — Client Buys ${base} / Sells ${quote} (Bank Sells @ Ask)</option>
+        <option value="LHS">LHS — Client Sells ${base} / Buys ${quote} (Quoted in ${base}:${quote})</option>
+        <option value="RHS">RHS — Client Buys ${base} / Sells ${quote} (Quoted in ${quote}:${base})</option>
       `;
-      fxfaDirection.value = (curVal === 'LHS' || curVal === 'SELL_LHS' || curVal === 'SELL') ? 'LHS' : 'RHS';
+      fxfaDirection.value = (curVal === 'RHS') ? 'RHS' : 'LHS';
     }
 
-    if (lblLhsClientRole) lblLhsClientRole.textContent = `Client Sells ${base} / Buys ${quote}`;
-    if (lblRhsClientRole) lblRhsClientRole.textContent = `Client Buys ${base} / Sells ${quote}`;
+    if (lblLhsClientRole) lblLhsClientRole.textContent = `Client Sells ${base} / Buys ${quote} (${base}:${quote})`;
+    if (lblRhsClientRole) lblRhsClientRole.textContent = `Client Buys ${base} / Sells ${quote} (${quote}:${base})`;
   }
 }
 
@@ -377,6 +420,9 @@ function renderPresets(presets) {
 
 function applyPreset(preset) {
   ACTIVE_PAIR = preset.pair;
+  if (preset.direction && fxfaDirection) {
+    fxfaDirection.value = preset.direction;
+  }
   syncAllSelects(ACTIVE_PAIR);
 
   fxfaAsofDate.value = preset.date;
@@ -385,7 +431,7 @@ function applyPreset(preset) {
   if (preset.winEnd) fxfaWindowEnd.value = preset.winEnd;
 
   frdDateInput.value = preset.date;
-  updateSpotUI(ACTIVE_PAIR, preset.date, fxfaDirection ? fxfaDirection.value : 'RHS', preset.spot ? preset.spot.toString() : null, false);
+  updateSpotUI(ACTIVE_PAIR, preset.date, fxfaDirection ? fxfaDirection.value : 'LHS', preset.spot ? preset.spot.toString() : null, false);
   modeWindowBtn.click();
   switchTab('pricer');
 }
@@ -445,8 +491,10 @@ async function getMarketSpotDetails(pairKey, asOfDate, forceRefresh = false, cus
  * the active side indicator, and the top terminal banner across pair and direction changes.
  */
 async function updateSpotUI(pairKey, asOfDate, direction, rawInputVal = null, forceReset = false) {
-  const pairMeta = getPairMeta(pairKey);
   const isLHS = (direction === 'LHS' || direction === 'SELL_LHS' || direction === 'SELL');
+  const isRHS = !isLHS;
+  const effectiveKey = isRHS ? getInvertedPairKey(pairKey) : pairKey;
+  const pairMeta = getPairMeta(effectiveKey);
   const decimals = pairMeta.quoteDecimals || 5;
 
   let spotVal = null;
@@ -459,13 +507,13 @@ async function updateSpotUI(pairKey, asOfDate, direction, rawInputVal = null, fo
 
   let details;
   if (spotVal == null || forceReset) {
-    details = await getMarketSpotDetails(pairKey, asOfDate, forceReset);
+    details = await getMarketSpotDetails(effectiveKey, asOfDate, forceReset);
     spotVal = details.mid;
     if (fxfaSpotInput) {
       fxfaSpotInput.value = spotVal.toFixed(decimals);
     }
   } else {
-    details = await getMarketSpotDetails(pairKey, asOfDate, false, spotVal);
+    details = await getMarketSpotDetails(effectiveKey, asOfDate, false, spotVal);
   }
 
   const spotBid = details.bid;
@@ -475,18 +523,21 @@ async function updateSpotUI(pairKey, asOfDate, direction, rawInputVal = null, fo
   if (inputSpotLhs) inputSpotLhs.textContent = spotBid.toFixed(decimals);
   if (inputSpotRhs) inputSpotRhs.textContent = spotAsk.toFixed(decimals);
 
-  if (bdItemLhs) bdItemLhs.classList.toggle('active-side', isLHS);
-  if (bdItemRhs) bdItemRhs.classList.toggle('active-side', !isLHS);
+  if (bdItemLhs) bdItemLhs.classList.toggle('active-side', true);
+  if (bdItemRhs) bdItemRhs.classList.toggle('active-side', false);
 
   if (lblSpotSide) {
-    lblSpotSide.textContent = isLHS
-      ? `(LHS Bid: ${spotBid.toFixed(decimals)})`
-      : `(RHS Ask: ${spotAsk.toFixed(decimals)})`;
+    lblSpotSide.textContent = `(${pairMeta.name} Bank Bid: ${spotBid.toFixed(decimals)})`;
   }
 
   if (bannerSpotBid) bannerSpotBid.textContent = spotBid.toFixed(decimals);
   if (bannerSpotAsk) bannerSpotAsk.textContent = spotAsk.toFixed(decimals);
   if (bannerSpotMid) bannerSpotMid.textContent = `(Mid: ${spotMid.toFixed(decimals)})`;
+
+  if (bannerLhsRhsBadge) bannerLhsRhsBadge.textContent = pairMeta.name;
+  if (activePairName) activePairName.textContent = pairMeta.name;
+  if (bannerBaseCode) bannerBaseCode.textContent = pairMeta.base;
+  if (bannerQuoteCode) bannerQuoteCode.textContent = pairMeta.quote;
 
   if (bannerLiveBadge) {
     if (details.isLive) {
@@ -586,16 +637,24 @@ async function calculatePricer() {
 
   const applyXccy = fxfaXccyToggle.checked;
   const notional = parseFloat(fxfaNotional.value) || 1000000;
-  const pairMeta = getPairMeta(pair);
-  const base = pairMeta.base || pairMeta.lhs;
-  const quote = pairMeta.quote || pairMeta.rhs;
   const direction = fxfaDirection.value;
   // Institutional Nomenclature:
-  // LHS = Client SELLS base / BUYS quote (Executed at Bank BID)
-  // RHS = Client BUYS base / SELLS quote (Executed at Bank ASK)
+  // - LHS: Client SELLS base / BUYS quote (Quoted in Base:Terms, e.g. EUR:USD). Client sells Base @ Bank BID.
+  // - RHS: Client BUYS base / SELLS quote (Quoted in Terms:Base, e.g. USD:EUR). In USD:EUR, Client sells USD @ Bank BID.
   const isLHS = (direction === 'LHS' || direction === 'SELL_LHS' || direction === 'SELL');
+  const isRHS = !isLHS;
 
-  // Ensure spot breakdown reflects the current pair, date and direction
+  // Inverted quotation when RHS is selected
+  const effectivePairKey = isRHS ? getInvertedPairKey(pair) : pair;
+  const effectiveMeta = getPairMeta(effectivePairKey);
+  const base = effectiveMeta.base || effectiveMeta.lhs;
+  const quote = effectiveMeta.quote || effectiveMeta.rhs;
+
+  if (lblNotional) lblNotional.textContent = `${base} Deal Notional Amount:`;
+  if (lblLhsClientRole) lblLhsClientRole.textContent = `Client Sells ${base} / Buys ${quote} (${effectiveMeta.name} Bid)`;
+  if (lblRhsClientRole) lblRhsClientRole.textContent = `Client Buys ${base} / Sells ${quote} (${effectiveMeta.name} Ask)`;
+
+  // Ensure spot breakdown reflects the current effective pair, date and direction
   const spotUiResult = await updateSpotUI(pair, asOf, direction, customSpot != null ? customSpot.toString() : null, false);
   const activeSpot = customSpot != null ? customSpot : (spotUiResult ? spotUiResult.spotMid : null);
 
@@ -604,9 +663,9 @@ async function calculatePricer() {
     fixedDecomposition.style.display = 'none';
     windowDecomposition.style.display = 'block';
     windowScheduleBox.style.display = 'block';
-    pricerResultHeading.textContent = 'WINDOW FORWARD (FLEXIBLE DELIVERY) PRICING';
+    pricerResultHeading.textContent = `WINDOW FORWARD (FLEXIBLE DELIVERY) — ${effectiveMeta.name}`;
     lblMetricRate.textContent = 'CLIENT EXECUTABLE RATE';
-    resSubDesc.textContent = 'Guaranteed Rate for Window Execution';
+    resSubDesc.textContent = `Guaranteed Rate for Window Execution (${effectiveMeta.name})`;
 
     const winStart = fxfaWindowStart.value;
     const winEnd = fxfaWindowEnd.value;
@@ -615,13 +674,13 @@ async function calculatePricer() {
       let data = null;
       try {
         const spotParam = activeSpot ? `&spot=${activeSpot}` : '';
-        const url = `/api/window-forward?pair=${pair}&asOf=${asOf}&windowStart=${winStart}&windowEnd=${winEnd}&direction=${isLHS ? 'LHS' : 'RHS'}&notional=${notional}&applyXccy=${applyXccy}${spotParam}${rateParams}`;
+        const url = `/api/window-forward?pair=${effectivePairKey}&asOf=${asOf}&windowStart=${winStart}&windowEnd=${winEnd}&direction=LHS&notional=${notional}&applyXccy=${applyXccy}${spotParam}${rateParams}`;
         const res = await fetch(url);
         if (res.ok) data = await res.json();
       } catch (e) {}
 
       if (!data && typeof CIP_CLIENT !== 'undefined') {
-        data = CIP_CLIENT.windowForward(pair, asOf, winStart, winEnd, isLHS ? 'LHS' : 'RHS', {
+        data = CIP_CLIENT.windowForward(effectivePairKey, asOf, winStart, winEnd, 'LHS', {
           applyXccy,
           notional,
           spot: activeSpot,
@@ -633,18 +692,18 @@ async function calculatePricer() {
       if (!data) throw new Error('Could not calculate window forward');
 
       // Update spot inputs if empty
-      if (!fxfaSpotInput.value) fxfaSpotInput.value = data.spot.toFixed(pairMeta.quoteDecimals);
+      if (!fxfaSpotInput.value) fxfaSpotInput.value = data.spot.toFixed(effectiveMeta.quoteDecimals);
 
       // Update banner & breakdown
       await updateSpotUI(pair, asOf, direction, customSpot != null ? customSpot.toString() : data.spot.toString(), false);
-      updateRateStripAndBanner(data, pairMeta);
+      updateRateStripAndBanner(data, effectiveMeta);
 
       // 1. Meta Pills & Spot LHS / RHS
-      resSpot.textContent = data.spot.toFixed(pairMeta.quoteDecimals);
-      if (resSpotLhsPill) resSpotLhsPill.textContent = data.spotBid.toFixed(pairMeta.quoteDecimals);
-      if (resSpotRhsPill) resSpotRhsPill.textContent = data.spotAsk.toFixed(pairMeta.quoteDecimals);
-      if (inputSpotLhs) inputSpotLhs.textContent = data.spotBid.toFixed(pairMeta.quoteDecimals);
-      if (inputSpotRhs) inputSpotRhs.textContent = data.spotAsk.toFixed(pairMeta.quoteDecimals);
+      resSpot.textContent = data.spot.toFixed(effectiveMeta.quoteDecimals);
+      if (resSpotLhsPill) resSpotLhsPill.textContent = data.spotBid.toFixed(effectiveMeta.quoteDecimals);
+      if (resSpotRhsPill) resSpotRhsPill.textContent = data.spotAsk.toFixed(effectiveMeta.quoteDecimals);
+      if (inputSpotLhs) inputSpotLhs.textContent = data.spotBid.toFixed(effectiveMeta.quoteDecimals);
+      if (inputSpotRhs) inputSpotRhs.textContent = data.spotAsk.toFixed(effectiveMeta.quoteDecimals);
       resSpotDate.textContent = data.spotDate;
       resDays.textContent = `${data.windowDurationDays}d flex`;
       winCurveStructure.textContent = data.curveStructure;
@@ -655,55 +714,49 @@ async function calculatePricer() {
       const wPtsBid = data.windowPointsBid != null ? data.windowPointsBid : data.startDatePricing.pointsBid;
       const wPtsAsk = data.windowPointsAsk != null ? data.windowPointsAsk : data.startDatePricing.pointsAsk;
       const wMid = (wBid + wAsk) / 2;
-      const wSpread = (wAsk - wBid) / pairMeta.pipSize;
+      const wSpread = (wAsk - wBid) / effectiveMeta.pipSize;
 
       // Spot LHS / RHS in respective two-way cards
-      if (resSpotLhs) resSpotLhs.textContent = data.spotBid.toFixed(pairMeta.quoteDecimals);
-      if (resSpotRhs) resSpotRhs.textContent = data.spotAsk.toFixed(pairMeta.quoteDecimals);
+      if (resSpotLhs) resSpotLhs.textContent = data.spotBid.toFixed(effectiveMeta.quoteDecimals);
+      if (resSpotRhs) resSpotRhs.textContent = data.spotAsk.toFixed(effectiveMeta.quoteDecimals);
 
-      resFwdBid.textContent = wBid.toFixed(pairMeta.quoteDecimals);
-      resFwdAsk.textContent = wAsk.toFixed(pairMeta.quoteDecimals);
-      resPtsBid.textContent = `${wPtsBid >= 0 ? '+' : ''}${wPtsBid.toFixed(pairMeta.pipDecimals)} pips`;
-      resPtsAsk.textContent = `${wPtsAsk >= 0 ? '+' : ''}${wPtsAsk.toFixed(pairMeta.pipDecimals)} pips`;
+      resFwdBid.textContent = wBid.toFixed(effectiveMeta.quoteDecimals);
+      resFwdAsk.textContent = wAsk.toFixed(effectiveMeta.quoteDecimals);
+      resPtsBid.textContent = `${wPtsBid >= 0 ? '+' : ''}${wPtsBid.toFixed(effectiveMeta.pipDecimals)} pips`;
+      resPtsAsk.textContent = `${wPtsAsk >= 0 ? '+' : ''}${wPtsAsk.toFixed(effectiveMeta.pipDecimals)} pips`;
 
-      resFwdMid.textContent = wMid.toFixed(pairMeta.quoteDecimals);
+      resFwdMid.textContent = wMid.toFixed(effectiveMeta.quoteDecimals);
       resFwdSpread.textContent = `${wSpread.toFixed(2)} pips`;
-      resPoints.textContent = `${(isLHS ? wPtsBid : wPtsAsk) >= 0 ? '+' : ''}${(isLHS ? wPtsBid : wPtsAsk).toFixed(pairMeta.pipDecimals)} pips`;
+      resPoints.textContent = `${wPtsBid >= 0 ? '+' : ''}${wPtsBid.toFixed(effectiveMeta.pipDecimals)} pips`;
       resAnnPrm.textContent = data.curveStructure.includes('PREMIUM') ? 'Premium' : 'Discount';
 
       // 3. Client Execution Deal Card (Active Side Highlight)
-      if (isLHS) {
-        cardFwdBid.classList.add('deal-active');
-        cardFwdAsk.classList.remove('deal-active');
-        resOutright.textContent = wBid.toFixed(pairMeta.quoteDecimals);
-        resDealDirection.textContent = `LHS Deal: Client SELLS ${base} / BUYS ${quote} @ Bank BID: ${wBid.toFixed(pairMeta.quoteDecimals)}`;
-        if (resDealSpot) resDealSpot.textContent = `${data.spotBid.toFixed(pairMeta.quoteDecimals)} (Spot LHS / Bid)`;
-        if (resDealPoints) resDealPoints.textContent = `${wPtsBid >= 0 ? '+' : ''}${wPtsBid.toFixed(pairMeta.pipDecimals)} pips`;
-        const settleCash = notional * wBid;
-        resCashflow.textContent = `${settleCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${quote} for ${notional.toLocaleString('en-US')} ${base}`;
+      // Client is executing at Bank BID of the quoted pair (effectiveMeta)
+      cardFwdBid.classList.add('deal-active');
+      cardFwdAsk.classList.remove('deal-active');
+      resOutright.textContent = wBid.toFixed(effectiveMeta.quoteDecimals);
+      if (isRHS) {
+        resDealDirection.textContent = `RHS Deal: Client BUYS ${quote} / SELLS ${base} (Quoted in ${effectiveMeta.name} @ Bank BID: ${wBid.toFixed(effectiveMeta.quoteDecimals)})`;
       } else {
-        cardFwdAsk.classList.add('deal-active');
-        cardFwdBid.classList.remove('deal-active');
-        resOutright.textContent = wAsk.toFixed(pairMeta.quoteDecimals);
-        resDealDirection.textContent = `RHS Deal: Client BUYS ${base} / SELLS ${quote} @ Bank ASK: ${wAsk.toFixed(pairMeta.quoteDecimals)}`;
-        if (resDealSpot) resDealSpot.textContent = `${data.spotAsk.toFixed(pairMeta.quoteDecimals)} (Spot RHS / Ask)`;
-        if (resDealPoints) resDealPoints.textContent = `${wPtsAsk >= 0 ? '+' : ''}${wPtsAsk.toFixed(pairMeta.pipDecimals)} pips`;
-        const settleCash = notional * wAsk;
-        resCashflow.textContent = `${settleCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${quote} for ${notional.toLocaleString('en-US')} ${base}`;
+        resDealDirection.textContent = `LHS Deal: Client SELLS ${base} / BUYS ${quote} (Quoted in ${effectiveMeta.name} @ Bank BID: ${wBid.toFixed(effectiveMeta.quoteDecimals)})`;
       }
+      if (resDealSpot) resDealSpot.textContent = `${data.spotBid.toFixed(effectiveMeta.quoteDecimals)} (Spot ${effectiveMeta.name} Bank BID)`;
+      if (resDealPoints) resDealPoints.textContent = `${wPtsBid >= 0 ? '+' : ''}${wPtsBid.toFixed(effectiveMeta.pipDecimals)} pips`;
+      const settleCash = notional * wBid;
+      resCashflow.textContent = `${settleCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${quote} for ${notional.toLocaleString('en-US')} ${base}`;
 
       // 4. Side-by-side Boundary Pillars (Start vs End)
       winStartDateLbl.textContent = `${data.startDatePricing.date} (${data.startDatePricing.days}d)`;
-      winStartBid.textContent = data.startDatePricing.bid.toFixed(pairMeta.quoteDecimals);
-      winStartAsk.textContent = data.startDatePricing.ask.toFixed(pairMeta.quoteDecimals);
-      winStartMid.textContent = data.startDatePricing.mid.toFixed(pairMeta.quoteDecimals);
-      winStartPts.textContent = `${data.startDatePricing.pointsMid >= 0 ? '+' : ''}${data.startDatePricing.pointsMid.toFixed(pairMeta.pipDecimals)} pips`;
+      winStartBid.textContent = data.startDatePricing.bid.toFixed(effectiveMeta.quoteDecimals);
+      winStartAsk.textContent = data.startDatePricing.ask.toFixed(effectiveMeta.quoteDecimals);
+      winStartMid.textContent = data.startDatePricing.mid.toFixed(effectiveMeta.quoteDecimals);
+      winStartPts.textContent = `${data.startDatePricing.pointsMid >= 0 ? '+' : ''}${data.startDatePricing.pointsMid.toFixed(effectiveMeta.pipDecimals)} pips`;
 
       winEndDateLbl.textContent = `${data.endDatePricing.date} (${data.endDatePricing.days}d)`;
-      winEndBid.textContent = data.endDatePricing.bid.toFixed(pairMeta.quoteDecimals);
-      winEndAsk.textContent = data.endDatePricing.ask.toFixed(pairMeta.quoteDecimals);
-      winEndMid.textContent = data.endDatePricing.mid.toFixed(pairMeta.quoteDecimals);
-      winEndPts.textContent = `${data.endDatePricing.pointsMid >= 0 ? '+' : ''}${data.endDatePricing.pointsMid.toFixed(pairMeta.pipDecimals)} pips`;
+      winEndBid.textContent = data.endDatePricing.bid.toFixed(effectiveMeta.quoteDecimals);
+      winEndAsk.textContent = data.endDatePricing.ask.toFixed(effectiveMeta.quoteDecimals);
+      winEndMid.textContent = data.endDatePricing.mid.toFixed(effectiveMeta.quoteDecimals);
+      winEndPts.textContent = `${data.endDatePricing.pointsMid >= 0 ? '+' : ''}${data.endDatePricing.pointsMid.toFixed(effectiveMeta.pipDecimals)} pips`;
 
       // Highlight active conservative pillar
       if (data.worstCaseDate === data.windowStart) {
@@ -715,7 +768,7 @@ async function calculatePricer() {
       }
 
       winWorstDate.textContent = `${data.worstCaseDate} (${data.worstCaseDays}d from spot - Conservative Carry Boundary)`;
-      winCarryCost.textContent = `${data.windowCost.pips.toFixed(pairMeta.pipDecimals)} pips (${data.windowCost.cashflow.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${data.windowCost.currency})`;
+      winCarryCost.textContent = `${data.windowCost.pips.toFixed(effectiveMeta.pipDecimals)} pips (${data.windowCost.cashflow.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${data.windowCost.currency})`;
 
       // 5. Corridor table
       windowScheduleTbody.innerHTML = '';
@@ -724,9 +777,9 @@ async function calculatePricer() {
         tr.innerHTML = `
           <td><strong>${row.date}</strong></td>
           <td class="text-right">${row.days}</td>
-          <td class="text-right ${row.swapPoints >= 0 ? 'positive' : 'negative'}">${row.swapPoints >= 0 ? '+' : ''}${row.swapPoints.toFixed(pairMeta.pipDecimals)}</td>
-          <td class="text-right green-text">${row.forwardBid.toFixed(pairMeta.quoteDecimals)}</td>
-          <td class="text-right amber-text"><strong>${row.forwardAsk.toFixed(pairMeta.quoteDecimals)}</strong></td>
+          <td class="text-right ${row.swapPoints >= 0 ? 'positive' : 'negative'}">${row.swapPoints >= 0 ? '+' : ''}${row.swapPoints.toFixed(effectiveMeta.pipDecimals)}</td>
+          <td class="text-right green-text">${row.forwardBid.toFixed(effectiveMeta.quoteDecimals)}</td>
+          <td class="text-right amber-text"><strong>${row.forwardAsk.toFixed(effectiveMeta.quoteDecimals)}</strong></td>
         `;
         windowScheduleTbody.appendChild(tr);
       });
@@ -738,9 +791,9 @@ async function calculatePricer() {
     fixedDecomposition.style.display = 'block';
     windowDecomposition.style.display = 'none';
     windowScheduleBox.style.display = 'none';
-    pricerResultHeading.textContent = 'FIXED FORWARD (SINGLE MATURITY) PRICING';
+    pricerResultHeading.textContent = `FIXED FORWARD (SINGLE MATURITY) — ${effectiveMeta.name}`;
     lblMetricRate.textContent = 'CLIENT EXECUTABLE RATE';
-    resSubDesc.textContent = 'Fixed Settlement Delivery Rate';
+    resSubDesc.textContent = `Fixed Settlement Delivery Rate (${effectiveMeta.name})`;
 
     const settle = fxfaSettleDate.value;
 
@@ -748,12 +801,12 @@ async function calculatePricer() {
       let data = null;
       try {
         const spotParam = activeSpot ? `&spot=${activeSpot}` : '';
-        const res = await fetch(`/api/broken-date?pair=${pair}&asOf=${asOf}&settlement=${settle}&applyXccy=${applyXccy}${spotParam}${rateParams}`);
+        const res = await fetch(`/api/broken-date?pair=${effectivePairKey}&asOf=${asOf}&settlement=${settle}&applyXccy=${applyXccy}${spotParam}${rateParams}`);
         if (res.ok) data = await res.json();
       } catch (e) {}
 
       if (!data && typeof CIP_CLIENT !== 'undefined') {
-        data = CIP_CLIENT.brokenDate(pair, asOf, settle, applyXccy, activeSpot, {
+        data = CIP_CLIENT.brokenDate(effectivePairKey, asOf, settle, applyXccy, activeSpot, {
           baseRate: customBase,
           quoteRate: customQuote
         });
@@ -762,59 +815,52 @@ async function calculatePricer() {
       if (!data) throw new Error('Could not calculate fixed forward');
 
       await updateSpotUI(pair, asOf, direction, customSpot != null ? customSpot.toString() : data.spot.toString(), false);
-      updateRateStripAndBanner(data, pairMeta);
+      updateRateStripAndBanner(data, effectiveMeta);
 
-      resSpot.textContent = data.spot.toFixed(pairMeta.quoteDecimals);
-      if (resSpotLhsPill) resSpotLhsPill.textContent = data.spotBid.toFixed(pairMeta.quoteDecimals);
-      if (resSpotRhsPill) resSpotRhsPill.textContent = data.spotAsk.toFixed(pairMeta.quoteDecimals);
-      if (inputSpotLhs) inputSpotLhs.textContent = data.spotBid.toFixed(pairMeta.quoteDecimals);
-      if (inputSpotRhs) inputSpotRhs.textContent = data.spotAsk.toFixed(pairMeta.quoteDecimals);
-      if (resSpotLhs) resSpotLhs.textContent = data.spotBid.toFixed(pairMeta.quoteDecimals);
-      if (resSpotRhs) resSpotRhs.textContent = data.spotAsk.toFixed(pairMeta.quoteDecimals);
+      resSpot.textContent = data.spot.toFixed(effectiveMeta.quoteDecimals);
+      if (resSpotLhsPill) resSpotLhsPill.textContent = data.spotBid.toFixed(effectiveMeta.quoteDecimals);
+      if (resSpotRhsPill) resSpotRhsPill.textContent = data.spotAsk.toFixed(effectiveMeta.quoteDecimals);
+      if (inputSpotLhs) inputSpotLhs.textContent = data.spotBid.toFixed(effectiveMeta.quoteDecimals);
+      if (inputSpotRhs) inputSpotRhs.textContent = data.spotAsk.toFixed(effectiveMeta.quoteDecimals);
+      if (resSpotLhs) resSpotLhs.textContent = data.spotBid.toFixed(effectiveMeta.quoteDecimals);
+      if (resSpotRhs) resSpotRhs.textContent = data.spotAsk.toFixed(effectiveMeta.quoteDecimals);
 
       resSpotDate.textContent = data.spotDate;
       resDays.textContent = `${data.days} days`;
       winCurveStructure.textContent = data.outrightForward >= data.spot ? 'PREMIUM' : 'DISCOUNT';
 
-      const fSpread = (data.forwardAsk - data.forwardBid) / pairMeta.pipSize;
-      resFwdBid.textContent = data.forwardBid.toFixed(pairMeta.quoteDecimals);
-      resFwdAsk.textContent = data.forwardAsk.toFixed(pairMeta.quoteDecimals);
-      resPtsBid.textContent = `${data.pointsBid >= 0 ? '+' : ''}${data.pointsBid.toFixed(pairMeta.pipDecimals)} pips`;
-      resPtsAsk.textContent = `${data.pointsAsk >= 0 ? '+' : ''}${data.pointsAsk.toFixed(pairMeta.pipDecimals)} pips`;
+      const fSpread = (data.forwardAsk - data.forwardBid) / effectiveMeta.pipSize;
+      resFwdBid.textContent = data.forwardBid.toFixed(effectiveMeta.quoteDecimals);
+      resFwdAsk.textContent = data.forwardAsk.toFixed(effectiveMeta.quoteDecimals);
+      resPtsBid.textContent = `${data.pointsBid >= 0 ? '+' : ''}${data.pointsBid.toFixed(effectiveMeta.pipDecimals)} pips`;
+      resPtsAsk.textContent = `${data.pointsAsk >= 0 ? '+' : ''}${data.pointsAsk.toFixed(effectiveMeta.pipDecimals)} pips`;
 
-      resFwdMid.textContent = data.outrightForward.toFixed(pairMeta.quoteDecimals);
+      resFwdMid.textContent = data.outrightForward.toFixed(effectiveMeta.quoteDecimals);
       resFwdSpread.textContent = `${fSpread.toFixed(2)} pips`;
-      resPoints.textContent = `${data.swapPoints >= 0 ? '+' : ''}${data.swapPoints.toFixed(pairMeta.pipDecimals)} pips`;
+      resPoints.textContent = `${data.pointsBid >= 0 ? '+' : ''}${data.pointsBid.toFixed(effectiveMeta.pipDecimals)} pips`;
       resAnnPrm.textContent = `${data.annPremiumPct >= 0 ? '+' : ''}${data.annPremiumPct.toFixed(2)}% Ann.`;
 
       // Dealing execution
-      if (isLHS) {
-        cardFwdBid.classList.add('deal-active');
-        cardFwdAsk.classList.remove('deal-active');
-        resOutright.textContent = data.forwardBid.toFixed(pairMeta.quoteDecimals);
-        resDealDirection.textContent = `LHS Deal: Client SELLS ${base} / BUYS ${quote} @ Bank BID: ${data.forwardBid.toFixed(pairMeta.quoteDecimals)}`;
-        if (resDealSpot) resDealSpot.textContent = `${data.spotBid.toFixed(pairMeta.quoteDecimals)} (Spot LHS / Bid)`;
-        if (resDealPoints) resDealPoints.textContent = `${data.pointsBid >= 0 ? '+' : ''}${data.pointsBid.toFixed(pairMeta.pipDecimals)} pips`;
-        const totalCash = notional * data.forwardBid;
-        resCashflow.textContent = `${totalCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${quote} for ${notional.toLocaleString('en-US')} ${base}`;
+      cardFwdBid.classList.add('deal-active');
+      cardFwdAsk.classList.remove('deal-active');
+      resOutright.textContent = data.forwardBid.toFixed(effectiveMeta.quoteDecimals);
+      if (isRHS) {
+        resDealDirection.textContent = `RHS Deal: Client BUYS ${quote} / SELLS ${base} (Quoted in ${effectiveMeta.name} @ Bank BID: ${data.forwardBid.toFixed(effectiveMeta.quoteDecimals)})`;
       } else {
-        cardFwdAsk.classList.add('deal-active');
-        cardFwdBid.classList.remove('deal-active');
-        resOutright.textContent = data.forwardAsk.toFixed(pairMeta.quoteDecimals);
-        resDealDirection.textContent = `RHS Deal: Client BUYS ${base} / SELLS ${quote} @ Bank ASK: ${data.forwardAsk.toFixed(pairMeta.quoteDecimals)}`;
-        if (resDealSpot) resDealSpot.textContent = `${data.spotAsk.toFixed(pairMeta.quoteDecimals)} (Spot RHS / Ask)`;
-        if (resDealPoints) resDealPoints.textContent = `${data.pointsAsk >= 0 ? '+' : ''}${data.pointsAsk.toFixed(pairMeta.pipDecimals)} pips`;
-        const totalCash = notional * data.forwardAsk;
-        resCashflow.textContent = `${totalCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${quote} for ${notional.toLocaleString('en-US')} ${base}`;
+        resDealDirection.textContent = `LHS Deal: Client SELLS ${base} / BUYS ${quote} (Quoted in ${effectiveMeta.name} @ Bank BID: ${data.forwardBid.toFixed(effectiveMeta.quoteDecimals)})`;
       }
+      if (resDealSpot) resDealSpot.textContent = `${data.spotBid.toFixed(effectiveMeta.quoteDecimals)} (Spot ${effectiveMeta.name} Bank BID)`;
+      if (resDealPoints) resDealPoints.textContent = `${data.pointsBid >= 0 ? '+' : ''}${data.pointsBid.toFixed(effectiveMeta.pipDecimals)} pips`;
+      const totalCash = notional * data.forwardBid;
+      resCashflow.textContent = `${totalCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${quote} for ${notional.toLocaleString('en-US')} ${base}`;
 
-      if (fixSpotBid) fixSpotBid.textContent = data.spotBid.toFixed(pairMeta.quoteDecimals);
-      if (fixSpotAsk) fixSpotAsk.textContent = data.spotAsk.toFixed(pairMeta.quoteDecimals);
-      if (fixPtsBid) fixPtsBid.textContent = `${data.pointsBid >= 0 ? '+' : ''}${data.pointsBid.toFixed(pairMeta.pipDecimals)} pips`;
-      if (fixPtsAsk) fixPtsAsk.textContent = `${data.pointsAsk >= 0 ? '+' : ''}${data.pointsAsk.toFixed(pairMeta.pipDecimals)} pips`;
-      fixBidFwd.textContent = data.forwardBid.toFixed(pairMeta.quoteDecimals);
-      fixAskFwd.textContent = data.forwardAsk.toFixed(pairMeta.quoteDecimals);
-      fixMidPts.textContent = `${data.swapPoints >= 0 ? '+' : ''}${data.swapPoints.toFixed(pairMeta.pipDecimals)} pips`;
+      if (fixSpotBid) fixSpotBid.textContent = data.spotBid.toFixed(effectiveMeta.quoteDecimals);
+      if (fixSpotAsk) fixSpotAsk.textContent = data.spotAsk.toFixed(effectiveMeta.quoteDecimals);
+      if (fixPtsBid) fixPtsBid.textContent = `${data.pointsBid >= 0 ? '+' : ''}${data.pointsBid.toFixed(effectiveMeta.pipDecimals)} pips`;
+      if (fixPtsAsk) fixPtsAsk.textContent = `${data.pointsAsk >= 0 ? '+' : ''}${data.pointsAsk.toFixed(effectiveMeta.pipDecimals)} pips`;
+      fixBidFwd.textContent = data.forwardBid.toFixed(effectiveMeta.quoteDecimals);
+      fixAskFwd.textContent = data.forwardAsk.toFixed(effectiveMeta.quoteDecimals);
+      fixMidPts.textContent = `${data.swapPoints >= 0 ? '+' : ''}${data.swapPoints.toFixed(effectiveMeta.pipDecimals)} pips`;
       resBaseRate.textContent = `${data.baseRate.toFixed(2)}%`;
       resQuoteRate.textContent = `${data.quoteRate.toFixed(2)}%`;
     } catch (err) {
@@ -1203,8 +1249,25 @@ fxfaAsofDate.addEventListener('change', async () => {
 
 fxfaCalculateBtn.addEventListener('click', calculatePricer);
 fxfaXccyToggle.addEventListener('change', calculatePricer);
-fxfaDirection.addEventListener('change', () => {
-  updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, fxfaSpotInput.value, false);
+fxfaDirection.addEventListener('change', async () => {
+  const isNowRHS = (fxfaDirection.value === 'RHS');
+  const curVal = parseFloat(fxfaSpotInput.value);
+  if (!isNaN(curVal) && curVal > 0) {
+    if (isNowRHS && curVal > 1.0) {
+      if (Math.abs(curVal - 1.1662) < 0.005) {
+        fxfaSpotInput.value = '0.85660';
+      } else {
+        fxfaSpotInput.value = (1 / curVal).toFixed(5);
+      }
+    } else if (!isNowRHS && curVal < 1.0) {
+      if (Math.abs(curVal - 0.8566) < 0.005) {
+        fxfaSpotInput.value = '1.16620';
+      } else {
+        fxfaSpotInput.value = (1 / curVal).toFixed(5);
+      }
+    }
+  }
+  await updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, fxfaSpotInput.value, false);
   calculatePricer();
 });
 
