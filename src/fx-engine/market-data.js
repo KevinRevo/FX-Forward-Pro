@@ -261,24 +261,68 @@ async function getSpotDetails(pairKey, dateStr, customSpot = null, forceRefresh 
 
   // 2. Online Fetching
   if (isTodayOrFuture) {
-    // A. Yahoo Finance live tick
+    // A. TradingView Real-time Interbank Streaming Feed
     try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${pair.yahooTicker}`;
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      const tvRes = await fetch('https://scanner.tradingview.com/forex/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbols: { tickers: [`FX_IDC:${standardKey}`, `FX:${standardKey}`, `OANDA:${standardKey}`] },
+          columns: ['close', 'bid', 'ask']
+        }),
         signal: AbortSignal.timeout(3500)
       });
-      if (res.ok) {
-        const json = await res.json();
-        const meta = json.chart?.result?.[0]?.meta;
-        const price = meta?.regularMarketPrice;
-        if (price != null && price > 0) {
-          spotMid = parseFloat(price.toFixed(decimals));
-          source = 'YAHOO_REALTIME';
+      if (tvRes.ok) {
+        const tvJson = await tvRes.json();
+        const item = tvJson.data && tvJson.data.find(d => d && d.d && d.d[0] > 0);
+        if (item) {
+          const tvClose = item.d[0];
+          const tvBid = (item.d[1] && item.d[1] > 0) ? item.d[1] : null;
+          const tvAsk = (item.d[2] && item.d[2] > 0) ? item.d[2] : null;
+
+          spotMid = parseFloat(tvClose.toFixed(decimals));
+          source = 'TRADINGVIEW_LIVE';
           isLive = true;
+
+          const resBid = tvBid != null ? parseFloat(tvBid.toFixed(decimals)) : parseFloat((spotMid - halfSpread).toFixed(decimals));
+          const resAsk = tvAsk != null ? parseFloat(tvAsk.toFixed(decimals)) : parseFloat((spotMid + halfSpread).toFixed(decimals));
+
+          const result = {
+            rate: spotMid,
+            mid: spotMid,
+            bid: resBid,
+            ask: resAsk,
+            spreadPips: parseFloat(((resAsk - resBid) / pair.pipSize).toFixed(2)),
+            source,
+            isLive,
+            timestamp: new Date().toISOString()
+          };
+          memoryCache.spots.set(cacheKey, result);
+          return result;
         }
       }
     } catch (e) {}
+
+    // B. Yahoo Finance live tick
+    if (!spotMid) {
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${pair.yahooTicker}`;
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+          signal: AbortSignal.timeout(3500)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const meta = json.chart?.result?.[0]?.meta;
+          const price = meta?.regularMarketPrice;
+          if (price != null && price > 0) {
+            spotMid = parseFloat(price.toFixed(decimals));
+            source = 'YAHOO_REALTIME';
+            isLive = true;
+          }
+        }
+      } catch (e) {}
+    }
 
     // B. Open ER API (ECB Interbank cross rates, CORS friendly)
     if (!spotMid) {
