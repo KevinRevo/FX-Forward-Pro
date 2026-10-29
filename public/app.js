@@ -199,7 +199,7 @@ const BENCHMARK_PRESETS = [
     spot: 0.8566,
     winStart: '2026-11-02',
     winEnd: '2027-02-09',
-    description: 'Historical comparison: EUR:USD RHS quoted in USD:EUR @ 0.8566, Window 02/11/26 to 09/02/27.'
+    description: 'Historical comparison: EUR:USD RHS quoted in USD:EUR @ 0.8566, Window 02/11/26 to 09/02/27 (Bloomberg calibrated rate: ~0.8507).'
   },
   {
     id: 'fed-peak-2023',
