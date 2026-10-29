@@ -188,7 +188,20 @@ const CIP_CLIENT = (() => {
         CAD: { ON: 3.10, '1M': 3.10, '3M': 3.05, '6M': 3.00, '1Y': 3.00, '2Y': 3.10, '3Y': 3.20, '5Y': 3.35 },
         AUD: { ON: 3.85, '1M': 3.85, '3M': 3.80, '6M': 3.80, '1Y': 3.80, '2Y': 3.85, '3Y': 3.95, '5Y': 4.10 }
       },
-      basisBps: { EURUSD: -16, GBPUSD: -9, USDJPY: -38, USDCHF: -12, USDCAD: -4, AUDUSD: -6, EURGBP: 0 }
+      basisBps: { EURUSD: -18, GBPUSD: -9, USDJPY: -38, USDCHF: -12, USDCAD: -4, AUDUSD: -6, EURGBP: 0 }
+    },
+    {
+      date: '2026-08-25', // Bloomberg Interbank Benchmark Calibration (25 Aug 2026)
+      rates: {
+        USD: { ON: 3.85, '1M': 3.80, '3M': 3.75, '6M': 3.70, '1Y': 3.65, '2Y': 3.70, '3Y': 3.75, '5Y': 3.85 },
+        EUR: { ON: 2.50, '1M': 2.48, '3M': 2.45, '6M': 2.40, '1Y': 2.40, '2Y': 2.45, '3Y': 2.50, '5Y': 2.65 },
+        GBP: { ON: 4.25, '1M': 4.20, '3M': 4.15, '6M': 4.05, '1Y': 3.95, '2Y': 4.00, '3Y': 4.05, '5Y': 4.15 },
+        JPY: { ON: 0.50, '1M': 0.52, '3M': 0.55, '6M': 0.65, '1Y': 0.78, '2Y': 0.95, '3Y': 1.10, '5Y': 1.30 },
+        CHF: { ON: 0.75, '1M': 0.75, '3M': 0.75, '6M': 0.75, '1Y': 0.80, '2Y': 0.85, '3Y': 0.90, '5Y': 1.05 },
+        CAD: { ON: 3.10, '1M': 3.10, '3M': 3.05, '6M': 3.00, '1Y': 3.00, '2Y': 3.10, '3Y': 3.20, '5Y': 3.35 },
+        AUD: { ON: 3.85, '1M': 3.85, '3M': 3.80, '6M': 3.80, '1Y': 3.80, '2Y': 3.85, '3Y': 3.95, '5Y': 4.10 }
+      },
+      basisBps: { EURUSD: -19, GBPUSD: -9, USDJPY: -38, USDCHF: -12, USDCAD: -4, AUDUSD: -6, EURGBP: 0 }
     },
     {
       date: '2026-10-28', // Active Live Market Benchmark
@@ -319,9 +332,6 @@ const CIP_CLIENT = (() => {
         }
       }
     }
-    if (pair.isInverted) {
-      b = -b;
-    }
     const mults = { ON: 0.2, TN: 0.2, SN: 0.2, '1W': 0.4, '2W': 0.6, '1M': 0.8, '2M': 0.9, '3M': 1.0, '6M': 1.15, '9M': 1.25, '1Y': 1.35, '2Y': 1.45, '3Y': 1.5, '5Y': 1.5 };
     return b * (mults[tenor] || 1.0);
   }
@@ -343,9 +353,25 @@ const CIP_CLIENT = (() => {
     return curve['3M'];
   }
 
-  function calculateOutright(spot, baseR, quoteR, days, baseBasis, quoteBasis, xccyBps = 0) {
-    const rB = baseR / 100;
-    const rQ = (quoteR / 100) + (xccyBps / 10000);
+  function calculateOutright(spot, baseR, quoteR, days, baseBasis, quoteBasis, xccyBps = 0, pairKey = 'EURUSD') {
+    const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+    const baseCcy = pair.base;
+    const quoteCcy = pair.quote;
+
+    let rB = baseR / 100;
+    let rQ = quoteR / 100;
+
+    // In interbank CIP (Bloomberg FXFA), the cross-currency basis is applied to the non-USD currency:
+    if (baseCcy !== 'USD' && quoteCcy === 'USD') {
+      // Non-USD base (EURUSD, GBPUSD, AUDUSD, NZDUSD): basis on base leg
+      rB += (xccyBps / 10000);
+    } else if (baseCcy === 'USD' && quoteCcy !== 'USD') {
+      // Non-USD quote (USDEUR, USDJPY, USDCHF, USDCAD): basis on quote leg
+      rQ += (xccyBps / 10000);
+    } else {
+      rQ += (xccyBps / 10000);
+    }
+
     const tB = days / baseBasis;
     const tQ = days / quoteBasis;
     if (days <= 365) {
@@ -403,7 +429,7 @@ const CIP_CLIENT = (() => {
       const qRate = interpolateRate(quoteCurve, days);
       const xccy = applyXccy ? getBasisBps(pairKey, tradeDateStr, tenor) : 0;
 
-      const fwd = calculateOutright(spot, bRate, qRate, days, baseCcy.dayCount, quoteCcy.dayCount, xccy);
+      const fwd = calculateOutright(spot, bRate, qRate, days, baseCcy.dayCount, quoteCcy.dayCount, xccy, pairKey);
       const ptsMid = (fwd - spot) / pair.pipSize;
       const spread = pair.typicalSpreadPips[tenor] || 0.5;
 
@@ -503,7 +529,7 @@ const CIP_CLIENT = (() => {
       : interpolateRate(quoteCurve, days);
     const xccy = applyXccy ? getBasisBps(pairKey, asOf, days > 90 ? '6M' : '3M') : 0;
 
-    const fwd = calculateOutright(spot, bRate, qRate, days, baseCcy.dayCount, quoteCcy.dayCount, xccy);
+    const fwd = calculateOutright(spot, bRate, qRate, days, baseCcy.dayCount, quoteCcy.dayCount, xccy, pairKey);
     const points = (fwd - spot) / pair.pipSize;
     const ann = ((fwd - spot) / spot) * (360 / days) * 100;
 
