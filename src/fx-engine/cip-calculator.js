@@ -14,10 +14,26 @@ const {
 
 /**
  * Calculate Outright Forward Rate from Spot, Rates, and Day Count
+ * Follows Bloomberg FXFA / Interbank Covered Interest Parity (CIP) standard:
+ * Basis is applied to the non-USD currency against flat USD benchmark.
  */
-function calculateOutrightForward(spot, baseRatePct, quoteRatePct, days, baseBasis, quoteBasis, xccyBps = 0) {
-  const rBase = baseRatePct / 100;
-  const rQuote = (quoteRatePct / 100) + (xccyBps / 10000);
+function calculateOutrightForward(spot, baseRatePct, quoteRatePct, days, baseBasis, quoteBasis, xccyBps = 0, pairKey = 'EURUSD') {
+  const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+  const baseCcy = pair.base;
+  const quoteCcy = pair.quote;
+
+  let rBase = baseRatePct / 100;
+  let rQuote = quoteRatePct / 100;
+
+  if (baseCcy !== 'USD' && quoteCcy === 'USD') {
+    // Non-USD base (EURUSD, GBPUSD, AUDUSD, NZDUSD): basis is on base leg
+    rBase += (xccyBps / 10000);
+  } else if (baseCcy === 'USD' && quoteCcy !== 'USD') {
+    // Non-USD quote (USDEUR, USDJPY, USDCHF, USDCAD): basis is on quote leg
+    rQuote += (xccyBps / 10000);
+  } else {
+    rQuote += (xccyBps / 10000);
+  }
 
   const tBase = days / baseBasis;
   const tQuote = days / quoteBasis;
@@ -86,7 +102,8 @@ async function getForwardLadder(pairKey, tradeDateStr, options = {}) {
       days,
       baseCcy.dayCount,
       quoteCcy.dayCount,
-      xccyBps
+      xccyBps,
+      pairKey
     );
 
     // Swap Points (in pips)
@@ -190,7 +207,8 @@ async function calculateBrokenDateForward(pairKey, tradeDateStr, targetMaturityS
     days,
     baseCcy.dayCount,
     quoteCcy.dayCount,
-    xccyBps
+    xccyBps,
+    pairKey
   );
 
   const pointsMid = (fwdMid - spotMid) / pair.pipSize;
