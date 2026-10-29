@@ -114,7 +114,20 @@ const HISTORICAL_REGIMES = [
       CAD: { ON: 3.10, '1M': 3.10, '3M': 3.05, '6M': 3.00, '1Y': 3.00, '2Y': 3.10, '3Y': 3.20, '5Y': 3.35 },
       AUD: { ON: 3.85, '1M': 3.85, '3M': 3.80, '6M': 3.80, '1Y': 3.80, '2Y': 3.85, '3Y': 3.95, '5Y': 4.10 }
     },
-    basisBps: { EURUSD: -16, GBPUSD: -9, USDJPY: -38, USDCHF: -12, USDCAD: -4, AUDUSD: -6, EURGBP: 0 }
+    basisBps: { EURUSD: -18, GBPUSD: -9, USDJPY: -38, USDCHF: -12, USDCAD: -4, AUDUSD: -6, EURGBP: 0 }
+  },
+  {
+    date: '2026-08-25', // Bloomberg Interbank Benchmark Calibration (25 Aug 2026)
+    rates: {
+      USD: { ON: 3.85, '1M': 3.80, '3M': 3.75, '6M': 3.70, '1Y': 3.65, '2Y': 3.70, '3Y': 3.75, '5Y': 3.85 },
+      EUR: { ON: 2.50, '1M': 2.48, '3M': 2.45, '6M': 2.40, '1Y': 2.40, '2Y': 2.45, '3Y': 2.50, '5Y': 2.65 },
+      GBP: { ON: 4.25, '1M': 4.20, '3M': 4.15, '6M': 4.05, '1Y': 3.95, '2Y': 4.00, '3Y': 4.05, '5Y': 4.15 },
+      JPY: { ON: 0.50, '1M': 0.52, '3M': 0.55, '6M': 0.65, '1Y': 0.78, '2Y': 0.95, '3Y': 1.10, '5Y': 1.30 },
+      CHF: { ON: 0.75, '1M': 0.75, '3M': 0.75, '6M': 0.75, '1Y': 0.80, '2Y': 0.85, '3Y': 0.90, '5Y': 1.05 },
+      CAD: { ON: 3.10, '1M': 3.10, '3M': 3.05, '6M': 3.00, '1Y': 3.00, '2Y': 3.10, '3Y': 3.20, '5Y': 3.35 },
+      AUD: { ON: 3.85, '1M': 3.85, '3M': 3.80, '6M': 3.80, '1Y': 3.80, '2Y': 3.85, '3Y': 3.95, '5Y': 4.10 }
+    },
+    basisBps: { EURUSD: -19, GBPUSD: -9, USDJPY: -38, USDCHF: -12, USDCAD: -4, AUDUSD: -6, EURGBP: 0 }
   },
   {
     date: '2026-10-28', // Active Live Market Benchmark
@@ -574,7 +587,7 @@ function getCrossCurrencyBasisBps(pairKey, dateStr, tenor = '3M') {
   const mult = tenorMultiplier[tenor] || 1.0;
   const result = basis * mult;
 
-  return isInv ? -result : result;
+  return result;
 }
 
 /**
