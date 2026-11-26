@@ -4,10 +4,11 @@
  */
 
 const { PAIRS, CURRENCIES, STANDARD_TENORS } = require('./conventions');
-const { getSpotDate, getTenorMaturityDate, getDayCount, formatDateISO } = require('./calendar');
+const { getSpotDate, getTenorMaturityDate, getDayCount, formatDateISO, getEffectiveTradeDateInfo } = require('./calendar');
 const {
   getSpotRate,
   getYieldCurve,
+  fetchLiveBenchmarkRates,
   getCrossCurrencyBasisBps,
   interpolateRateForDays
 } = require('./market-data');
@@ -61,8 +62,10 @@ async function getForwardLadder(pairKey, tradeDateStr, options = {}) {
   const pair = PAIRS[pairKey] || PAIRS.EURUSD;
   const applyXccy = options.applyXccy !== false; // Default true (matches real interbank market)
 
+  await fetchLiveBenchmarkRates(tradeDateStr);
+  const tradeInfo = getEffectiveTradeDateInfo(tradeDateStr, options.tradeTime, options.timeZone);
   const spotMid = await getSpotRate(pairKey, tradeDateStr);
-  const spotDate = getSpotDate(tradeDateStr, pairKey);
+  const spotDate = getSpotDate(tradeInfo.effectiveDateStr, pairKey);
   const spotDateStr = formatDateISO(spotDate);
 
   const baseCcy = CURRENCIES[pair.base];
@@ -146,6 +149,9 @@ async function getForwardLadder(pairKey, tradeDateStr, options = {}) {
     pair: pair.symbol,
     pairName: pair.name,
     tradeDate: tradeDateStr,
+    effectiveTradeDate: tradeInfo.effectiveDateStr,
+    rolledAfterNyCut: tradeInfo.rolledAfterNyCut,
+    nyTimeStr: tradeInfo.nyTimeStr,
     spotDate: spotDateStr,
     spot: {
       bid: spotBid,
@@ -174,11 +180,14 @@ async function calculateBrokenDateForward(pairKey, tradeDateStr, targetMaturityS
   const pair = PAIRS[pairKey] || PAIRS.EURUSD;
   const applyXccy = options.applyXccy !== false;
 
+  await fetchLiveBenchmarkRates(tradeDateStr);
+  const tradeInfo = getEffectiveTradeDateInfo(tradeDateStr, options.tradeTime, options.timeZone);
+
   const spotMid = (options.spot != null && parseFloat(options.spot) > 0)
     ? parseFloat(options.spot)
     : await getSpotRate(pairKey, tradeDateStr);
 
-  const spotDate = getSpotDate(tradeDateStr, pairKey);
+  const spotDate = getSpotDate(tradeInfo.effectiveDateStr, pairKey);
   const spotDateStr = formatDateISO(spotDate);
 
   const maturityDate = new Date(targetMaturityStr);
@@ -238,6 +247,9 @@ async function calculateBrokenDateForward(pairKey, tradeDateStr, targetMaturityS
     lhs: pair.lhs,
     rhs: pair.rhs,
     tradeDate: tradeDateStr,
+    effectiveTradeDate: tradeInfo.effectiveDateStr,
+    rolledAfterNyCut: tradeInfo.rolledAfterNyCut,
+    nyTimeStr: tradeInfo.nyTimeStr,
     spotDate: spotDateStr,
     maturityDate: targetMaturityStr,
     days,
@@ -372,7 +384,9 @@ async function calculateWindowForward(pairKey, tradeDateStr, windowStartStr, win
     spot: customSpot,
     spreadPips: options.spreadPips,
     baseRate: options.baseRate,
-    quoteRate: options.quoteRate
+    quoteRate: options.quoteRate,
+    tradeTime: options.tradeTime,
+    timeZone: options.timeZone
   };
   const startFwd = await calculateBrokenDateForward(pairKey, tradeDateStr, windowStartStr, subOpts);
   const endFwd = await calculateBrokenDateForward(pairKey, tradeDateStr, windowEndStr, subOpts);
@@ -470,7 +484,15 @@ async function calculateWindowForward(pairKey, tradeDateStr, windowStartStr, win
     base: pair.base,
     quote: pair.quote,
     tradeDate: tradeDateStr,
+    effectiveTradeDate: startFwd.effectiveTradeDate,
+    rolledAfterNyCut: startFwd.rolledAfterNyCut,
+    nyTimeStr: startFwd.nyTimeStr,
     spotDate: startFwd.spotDate,
+    baseRate: startFwd.baseRate,
+    quoteRate: startFwd.quoteRate,
+    xccyBps: endFwd.xccyBps,
+    baseCcy: { benchmark: CURRENCIES[pair.base].benchmarkRate },
+    quoteCcy: { benchmark: CURRENCIES[pair.quote].benchmarkRate },
     spot: startFwd.spot,
     spotBid: startFwd.spotBid,
     spotAsk: startFwd.spotAsk,
