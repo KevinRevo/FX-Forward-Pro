@@ -87,6 +87,7 @@ const rowDirection = document.getElementById('row-direction');
 const fxfaPairSelect = document.getElementById('fxfa-pair-select');
 const fxfaAsofDate = document.getElementById('fxfa-asof-date');
 const fxfaAsofTime = document.getElementById('fxfa-asof-time');
+const fxfaClearTimeBtn = document.getElementById('fxfa-clear-time-btn');
 const fxfaTimezone = document.getElementById('fxfa-timezone');
 const nyRolloverNote = document.getElementById('ny-rollover-note');
 const fxfaSpotInput = document.getElementById('fxfa-spot-input');
@@ -435,6 +436,10 @@ function applyPreset(preset) {
   syncAllSelects(ACTIVE_PAIR);
 
   fxfaAsofDate.value = preset.date;
+  if (fxfaAsofTime) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (preset.date < todayStr) fxfaAsofTime.value = '';
+  }
   if (preset.spot) fxfaSpotInput.value = preset.spot;
   if (preset.winStart) fxfaWindowStart.value = preset.winStart;
   if (preset.winEnd) fxfaWindowEnd.value = preset.winEnd;
@@ -733,7 +738,9 @@ async function calculatePricer() {
       if (nyRolloverNote) {
         nyRolloverNote.textContent = data.rolledAfterNyCut
           ? `⚠️ Post-17:00 NY Cut (${data.nyTimeStr}) → Spot Date rolled to ${data.spotDate}`
-          : `Spot Date (T+2): ${data.spotDate}${data.nyTimeStr ? ` (${data.nyTimeStr})` : ''}`;
+          : (tradeTime
+              ? `Spot Date (T+2): ${data.spotDate} (${data.nyTimeStr || tradeTime})`
+              : `Sans heure → Fixing journalier | Spot Date (T+2): ${data.spotDate}`);
         nyRolloverNote.style.color = data.rolledAfterNyCut ? '#f59e0b' : '#8ba2b8';
       }
       resDays.textContent = `${data.windowDurationDays}d flex`;
@@ -862,7 +869,9 @@ async function calculatePricer() {
       if (nyRolloverNote) {
         nyRolloverNote.textContent = data.rolledAfterNyCut
           ? `⚠️ Post-17:00 NY Cut (${data.nyTimeStr}) → Spot Date rolled to ${data.spotDate}`
-          : `Spot Date (T+2): ${data.spotDate}${data.nyTimeStr ? ` (${data.nyTimeStr})` : ''}`;
+          : (tradeTime
+              ? `Spot Date (T+2): ${data.spotDate} (${data.nyTimeStr || tradeTime})`
+              : `Sans heure → Fixing journalier | Spot Date (T+2): ${data.spotDate}`);
         nyRolloverNote.style.color = data.rolledAfterNyCut ? '#f59e0b' : '#8ba2b8';
       }
       resDays.textContent = `${data.days} days`;
@@ -1290,6 +1299,13 @@ fxfaCalculateBtn.addEventListener('click', calculatePricer);
 fxfaXccyToggle.addEventListener('change', calculatePricer);
 if (fxfaAsofTime) {
   fxfaAsofTime.addEventListener('change', async () => {
+    await updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, null, true);
+    calculatePricer();
+  });
+}
+if (fxfaClearTimeBtn) {
+  fxfaClearTimeBtn.addEventListener('click', async () => {
+    if (fxfaAsofTime) fxfaAsofTime.value = '';
     await updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, null, true);
     calculatePricer();
   });
