@@ -280,6 +280,70 @@ function formatDateISO(date) {
   return date.toISOString().split('T')[0];
 }
 
+/**
+ * Convert a wall-clock dateStr (YYYY-MM-DD) + timeStr (HH:MM) in `timeZone`
+ * into an exact UTC Date object.
+ */
+function toUtcDateFromZoned(dateStr, timeStr = '14:15', timeZone = 'Europe/Paris') {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const [hh, mm] = (timeStr || '14:15').split(':').map(n => parseInt(n, 10) || 0);
+  const utcGuess = Date.UTC(y, m - 1, d, hh, mm, 0);
+  if (!timeZone || timeZone === 'UTC') return new Date(utcGuess);
+  try {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+    const parts = Object.fromEntries(fmt.formatToParts(new Date(utcGuess)).map(p => [p.type, p.value]));
+    const asZonedUtc = Date.UTC(
+      Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+      Number(parts.hour === '24' ? 0 : parts.hour), Number(parts.minute), Number(parts.second)
+    );
+    const offsetMs = asZonedUtc - utcGuess;
+    return new Date(utcGuess - offsetMs);
+  } catch (e) {
+    return new Date(utcGuess);
+  }
+}
+
+/**
+ * Interbank FX Value-Date Rollover (17:00 New York Cut):
+ * If the trade timestamp is at or after 17:00 America/New_York,
+ * the effective FX trade date rolls forward to the next calendar day.
+ */
+function getEffectiveTradeDateInfo(dateStr, timeStr = null, timeZone = 'Europe/Paris') {
+  if (!timeStr) {
+    return { effectiveDateStr: dateStr, rolledAfterNyCut: false, utcTimestamp: null, nyTimeStr: null };
+  }
+  const utcDate = toUtcDateFromZoned(dateStr, timeStr, timeZone);
+  const fmtNy = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit'
+  });
+  const p = Object.fromEntries(fmtNy.formatToParts(utcDate).map(x => [x.type, x.value]));
+  const nyHour = parseInt(p.hour === '24' ? '0' : p.hour, 10);
+  const nyDateStr = `${p.year}-${p.month}-${p.day}`;
+  const nyTimeStr = `${String(nyHour).padStart(2, '0')}:${p.minute} NY`;
+  const rolledAfterNyCut = nyHour >= 17;
+
+  let effectiveDateStr = nyDateStr;
+  if (rolledAfterNyCut) {
+    const nextD = new Date(`${nyDateStr}T00:00:00Z`);
+    nextD.setUTCDate(nextD.getUTCDate() + 1);
+    effectiveDateStr = nextD.toISOString().split('T')[0];
+  }
+  return {
+    effectiveDateStr,
+    rolledAfterNyCut,
+    utcTimestamp: Math.floor(utcDate.getTime() / 1000),
+    nyTimeStr
+  };
+}
+
 module.exports = {
   isBusinessDay,
   addBusinessDays,
@@ -287,5 +351,7 @@ module.exports = {
   getSpotDate,
   getTenorMaturityDate,
   getDayCount,
-  formatDateISO
+  formatDateISO,
+  toUtcDateFromZoned,
+  getEffectiveTradeDateInfo
 };
