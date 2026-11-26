@@ -86,6 +86,9 @@ const rowDirection = document.getElementById('row-direction');
 
 const fxfaPairSelect = document.getElementById('fxfa-pair-select');
 const fxfaAsofDate = document.getElementById('fxfa-asof-date');
+const fxfaAsofTime = document.getElementById('fxfa-asof-time');
+const fxfaTimezone = document.getElementById('fxfa-timezone');
+const nyRolloverNote = document.getElementById('ny-rollover-note');
 const fxfaSpotInput = document.getElementById('fxfa-spot-input');
 const fxfaResetSpotBtn = document.getElementById('fxfa-reset-spot-btn');
 const fxfaSettleDate = document.getElementById('fxfa-settle-date');
@@ -378,8 +381,14 @@ async function init() {
       });
     });
 
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
     if (fxfaAsofDate) fxfaAsofDate.value = today;
+    if (fxfaAsofTime) {
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      fxfaAsofTime.value = `${hh}:${mm}`;
+    }
     if (frdDateInput) frdDateInput.value = today;
     if (compDate1 && !compDate1.value) compDate1.value = '2023-10-15';
     if (compDate2) compDate2.value = today;
@@ -457,9 +466,13 @@ async function getMarketSpotDetails(pairKey, asOfDate, forceRefresh = false, cus
     };
   }
 
+  const tradeTime = fxfaAsofTime ? fxfaAsofTime.value : '';
+  const timeZone = fxfaTimezone ? fxfaTimezone.value : 'Europe/Paris';
+  const timeParams = tradeTime ? `&time=${encodeURIComponent(tradeTime)}&tz=${encodeURIComponent(timeZone)}` : '';
+
   // 1. Try server API
   try {
-    const res = await fetch(`/api/spot?pair=${pairKey}&date=${asOfDate}${forceRefresh ? '&refresh=true' : ''}`);
+    const res = await fetch(`/api/spot?pair=${pairKey}&date=${asOfDate}${timeParams}${forceRefresh ? '&refresh=true' : ''}`);
     if (res.ok) {
       const data = await res.json();
       if (data && data.mid > 0) return data;
@@ -469,7 +482,7 @@ async function getMarketSpotDetails(pairKey, asOfDate, forceRefresh = false, cus
   // 2. Try CIP_CLIENT in engine.js
   if (typeof CIP_CLIENT !== 'undefined' && CIP_CLIENT.fetchLiveSpot) {
     try {
-      const data = await CIP_CLIENT.fetchLiveSpot(pairKey, asOfDate, null, forceRefresh);
+      const data = await CIP_CLIENT.fetchLiveSpot(pairKey, asOfDate, null, forceRefresh, { tradeTime, timeZone });
       if (data && data.mid > 0) return data;
     } catch (e) {}
   }
@@ -579,9 +592,12 @@ function updateRateStripAndBanner(data, pairMeta) {
     stripDiffVal.className = `cip-strip-val ${diffRate >= 0 ? 'highlight' : 'negative'}`;
   }
 
-  if (bannerBaseRate) bannerBaseRate.textContent = `${data.baseCcy?.benchmark || 'RFR'} ${bRate.toFixed(2)}%`;
-  if (bannerQuoteRate) bannerQuoteRate.textContent = `${data.quoteCcy?.benchmark || 'RFR'} ${qRate.toFixed(2)}%`;
+  if (bannerBaseRate) bannerBaseRate.textContent = `${data.baseCcy?.benchmark || (base === 'USD' ? 'SOFR' : base === 'EUR' ? '€STR' : 'RFR')} ${bRate.toFixed(2)}%`;
+  if (bannerQuoteRate) bannerQuoteRate.textContent = `${data.quoteCcy?.benchmark || (quote === 'USD' ? 'SOFR' : quote === 'EUR' ? '€STR' : 'RFR')} ${qRate.toFixed(2)}%`;
   if (bannerXccyBasis) bannerXccyBasis.textContent = `${xccy.toFixed(1)} bps`;
+
+  if (fxfaCustomBaseRate) fxfaCustomBaseRate.placeholder = `Auto: ${bRate.toFixed(3)}%`;
+  if (fxfaCustomQuoteRate) fxfaCustomQuoteRate.placeholder = `Auto: ${qRate.toFixed(3)}%`;
 }
 
 // Spot Reset Button
@@ -628,6 +644,13 @@ async function calculatePricer() {
   ACTIVE_PAIR = pair;
   syncAllSelects(ACTIVE_PAIR);
   const asOf = fxfaAsofDate.value;
+  const tradeTime = fxfaAsofTime ? fxfaAsofTime.value : '';
+  const timeZone = fxfaTimezone ? fxfaTimezone.value : 'Europe/Paris';
+  const timeParams = tradeTime ? `&time=${encodeURIComponent(tradeTime)}&tz=${encodeURIComponent(timeZone)}` : '';
+
+  if (typeof CIP_CLIENT !== 'undefined' && CIP_CLIENT.fetchLiveBenchmarkRates) {
+    try { await CIP_CLIENT.fetchLiveBenchmarkRates(asOf); } catch (e) {}
+  }
   const rawSpotStr = fxfaSpotInput.value ? fxfaSpotInput.value.trim().replace(',', '.') : '';
   const customSpot = rawSpotStr && !isNaN(parseFloat(rawSpotStr)) && parseFloat(rawSpotStr) > 0 ? parseFloat(rawSpotStr) : null;
   const customBase = (fxfaCustomBaseRate && fxfaCustomBaseRate.value) ? parseFloat(fxfaCustomBaseRate.value.trim().replace(',', '.')) : null;
@@ -674,7 +697,7 @@ async function calculatePricer() {
       let data = null;
       try {
         const spotParam = activeSpot ? `&spot=${activeSpot}` : '';
-        const url = `/api/window-forward?pair=${effectivePairKey}&asOf=${asOf}&windowStart=${winStart}&windowEnd=${winEnd}&direction=LHS&notional=${notional}&applyXccy=${applyXccy}${spotParam}${rateParams}`;
+        const url = `/api/window-forward?pair=${effectivePairKey}&asOf=${asOf}&windowStart=${winStart}&windowEnd=${winEnd}&direction=LHS&notional=${notional}&applyXccy=${applyXccy}${spotParam}${rateParams}${timeParams}`;
         const res = await fetch(url);
         if (res.ok) data = await res.json();
       } catch (e) {}
@@ -685,7 +708,9 @@ async function calculatePricer() {
           notional,
           spot: activeSpot,
           baseRate: customBase,
-          quoteRate: customQuote
+          quoteRate: customQuote,
+          tradeTime,
+          timeZone
         });
       }
 
@@ -704,7 +729,13 @@ async function calculatePricer() {
       if (resSpotRhsPill) resSpotRhsPill.textContent = data.spotAsk.toFixed(effectiveMeta.quoteDecimals);
       if (inputSpotLhs) inputSpotLhs.textContent = data.spotBid.toFixed(effectiveMeta.quoteDecimals);
       if (inputSpotRhs) inputSpotRhs.textContent = data.spotAsk.toFixed(effectiveMeta.quoteDecimals);
-      resSpotDate.textContent = data.spotDate;
+      resSpotDate.textContent = data.rolledAfterNyCut ? `${data.spotDate} (NY Roll)` : data.spotDate;
+      if (nyRolloverNote) {
+        nyRolloverNote.textContent = data.rolledAfterNyCut
+          ? `⚠️ Post-17:00 NY Cut (${data.nyTimeStr}) → Spot Date rolled to ${data.spotDate}`
+          : `Spot Date (T+2): ${data.spotDate}${data.nyTimeStr ? ` (${data.nyTimeStr})` : ''}`;
+        nyRolloverNote.style.color = data.rolledAfterNyCut ? '#f59e0b' : '#8ba2b8';
+      }
       resDays.textContent = `${data.windowDurationDays}d flex`;
       winCurveStructure.textContent = data.curveStructure;
 
@@ -801,14 +832,16 @@ async function calculatePricer() {
       let data = null;
       try {
         const spotParam = activeSpot ? `&spot=${activeSpot}` : '';
-        const res = await fetch(`/api/broken-date?pair=${effectivePairKey}&asOf=${asOf}&settlement=${settle}&applyXccy=${applyXccy}${spotParam}${rateParams}`);
+        const res = await fetch(`/api/broken-date?pair=${effectivePairKey}&asOf=${asOf}&settlement=${settle}&applyXccy=${applyXccy}${spotParam}${rateParams}${timeParams}`);
         if (res.ok) data = await res.json();
       } catch (e) {}
 
       if (!data && typeof CIP_CLIENT !== 'undefined') {
         data = CIP_CLIENT.brokenDate(effectivePairKey, asOf, settle, applyXccy, activeSpot, {
           baseRate: customBase,
-          quoteRate: customQuote
+          quoteRate: customQuote,
+          tradeTime,
+          timeZone
         });
       }
 
@@ -825,7 +858,13 @@ async function calculatePricer() {
       if (resSpotLhs) resSpotLhs.textContent = data.spotBid.toFixed(effectiveMeta.quoteDecimals);
       if (resSpotRhs) resSpotRhs.textContent = data.spotAsk.toFixed(effectiveMeta.quoteDecimals);
 
-      resSpotDate.textContent = data.spotDate;
+      resSpotDate.textContent = data.rolledAfterNyCut ? `${data.spotDate} (NY Roll)` : data.spotDate;
+      if (nyRolloverNote) {
+        nyRolloverNote.textContent = data.rolledAfterNyCut
+          ? `⚠️ Post-17:00 NY Cut (${data.nyTimeStr}) → Spot Date rolled to ${data.spotDate}`
+          : `Spot Date (T+2): ${data.spotDate}${data.nyTimeStr ? ` (${data.nyTimeStr})` : ''}`;
+        nyRolloverNote.style.color = data.rolledAfterNyCut ? '#f59e0b' : '#8ba2b8';
+      }
       resDays.textContent = `${data.days} days`;
       winCurveStructure.textContent = data.outrightForward >= data.spot ? 'PREMIUM' : 'DISCOUNT';
 
@@ -1249,6 +1288,18 @@ fxfaAsofDate.addEventListener('change', async () => {
 
 fxfaCalculateBtn.addEventListener('click', calculatePricer);
 fxfaXccyToggle.addEventListener('change', calculatePricer);
+if (fxfaAsofTime) {
+  fxfaAsofTime.addEventListener('change', async () => {
+    await updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, null, true);
+    calculatePricer();
+  });
+}
+if (fxfaTimezone) {
+  fxfaTimezone.addEventListener('change', async () => {
+    await updateSpotUI(ACTIVE_PAIR, fxfaAsofDate.value, fxfaDirection.value, null, true);
+    calculatePricer();
+  });
+}
 fxfaDirection.addEventListener('change', async () => {
   const isNowRHS = (fxfaDirection.value === 'RHS');
   const curVal = parseFloat(fxfaSpotInput.value);
