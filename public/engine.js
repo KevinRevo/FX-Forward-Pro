@@ -215,6 +215,32 @@ const CIP_CLIENT = (() => {
         AUD: { ON: 3.85, '1M': 3.85, '3M': 3.80, '6M': 3.80, '1Y': 3.80, '2Y': 3.85, '3Y': 3.95, '5Y': 4.10 }
       },
       basisBps: { EURUSD: -15, GBPUSD: -8, USDJPY: -35, USDCHF: -10, USDCAD: -4, AUDUSD: -5, EURGBP: 0 }
+    },
+    {
+      date: '2026-11-19', // Real NY Fed SOFR 3.91% & ECB ESTR 2.441%
+      rates: {
+        USD: { ON: 3.91, '1M': 3.91, '3M': 3.92, '6M': 3.93, '1Y': 3.94, '2Y': 3.88, '3Y': 3.85, '5Y': 3.90 },
+        EUR: { ON: 2.441, '1M': 2.44, '3M': 2.44, '6M': 2.43, '1Y': 2.43, '2Y': 2.45, '3Y': 2.50, '5Y': 2.62 },
+        GBP: { ON: 4.25, '1M': 4.20, '3M': 4.15, '6M': 4.05, '1Y': 3.95, '2Y': 4.00, '3Y': 4.05, '5Y': 4.15 },
+        JPY: { ON: 0.50, '1M': 0.52, '3M': 0.55, '6M': 0.65, '1Y': 0.78, '2Y': 0.95, '3Y': 1.10, '5Y': 1.30 },
+        CHF: { ON: 0.75, '1M': 0.75, '3M': 0.75, '6M': 0.75, '1Y': 0.80, '2Y': 0.85, '3Y': 0.90, '5Y': 1.05 },
+        CAD: { ON: 3.10, '1M': 3.10, '3M': 3.05, '6M': 3.00, '1Y': 3.00, '2Y': 3.10, '3Y': 3.20, '5Y': 3.35 },
+        AUD: { ON: 3.85, '1M': 3.85, '3M': 3.80, '6M': 3.80, '1Y': 3.80, '2Y': 3.85, '3Y': 3.95, '5Y': 4.10 }
+      },
+      basisBps: { EURUSD: -15, GBPUSD: -8, USDJPY: -35, USDCHF: -10, USDCAD: -4, AUDUSD: -5, EURGBP: 0 }
+    },
+    {
+      date: '2026-11-26', // Active Live Market Benchmark (NY Fed SOFR 3.94%, ECB ESTR 2.444%)
+      rates: {
+        USD: { ON: 3.94, '1M': 3.94, '3M': 3.94, '6M': 3.94, '1Y': 3.94, '2Y': 3.90, '3Y': 3.88, '5Y': 3.92 },
+        EUR: { ON: 2.444, '1M': 2.444, '3M': 2.442, '6M': 2.44, '1Y': 2.44, '2Y': 2.46, '3Y': 2.52, '5Y': 2.65 },
+        GBP: { ON: 4.25, '1M': 4.20, '3M': 4.15, '6M': 4.05, '1Y': 3.95, '2Y': 4.00, '3Y': 4.05, '5Y': 4.15 },
+        JPY: { ON: 0.50, '1M': 0.52, '3M': 0.55, '6M': 0.65, '1Y': 0.78, '2Y': 0.95, '3Y': 1.10, '5Y': 1.30 },
+        CHF: { ON: 0.75, '1M': 0.75, '3M': 0.75, '6M': 0.75, '1Y': 0.80, '2Y': 0.85, '3Y': 0.90, '5Y': 1.05 },
+        CAD: { ON: 3.10, '1M': 3.10, '3M': 3.05, '6M': 3.00, '1Y': 3.00, '2Y': 3.10, '3Y': 3.20, '5Y': 3.35 },
+        AUD: { ON: 3.85, '1M': 3.85, '3M': 3.80, '6M': 3.80, '1Y': 3.80, '2Y': 3.85, '3Y': 3.95, '5Y': 4.10 }
+      },
+      basisBps: { EURUSD: -15, GBPUSD: -8, USDJPY: -35, USDCHF: -10, USDCAD: -4, AUDUSD: -5, EURGBP: 0 }
     }
   ];
 
@@ -222,12 +248,14 @@ const CIP_CLIENT = (() => {
     EURUSD: [
       { date: '2019-10-15', rate: 1.1030 }, { date: '2020-04-15', rate: 1.0910 }, { date: '2022-06-15', rate: 1.0440 },
       { date: '2022-09-27', rate: 0.9595 }, { date: '2023-10-15', rate: 1.05216 }, { date: '2024-09-15', rate: 1.10884 },
-      { date: '2026-08-25', rate: 1.1662 }, { date: '2026-10-28', rate: 1.1119 }
+      { date: '2026-08-25', rate: 1.1662 }, { date: '2026-10-28', rate: 1.1119 },
+      { date: '2026-11-19', rate: 1.0978 }, { date: '2026-11-26', rate: 1.0980 }
     ],
     USDEUR: [
       { date: '2019-10-15', rate: 0.9066 }, { date: '2020-04-15', rate: 0.9166 }, { date: '2022-06-15', rate: 0.9579 },
       { date: '2022-09-27', rate: 1.0422 }, { date: '2023-10-15', rate: 0.9504 }, { date: '2024-09-15', rate: 0.9018 },
-      { date: '2026-08-25', rate: 0.8566 }, { date: '2026-10-28', rate: 0.8986 }
+      { date: '2026-08-25', rate: 0.8566 }, { date: '2026-10-28', rate: 0.8986 },
+      { date: '2026-11-19', rate: 0.9109 }, { date: '2026-11-26', rate: 0.9107 }
     ],
     EURGBP: [
       { date: '2019-10-15', rate: 0.8650 }, { date: '2020-04-15', rate: 0.8750 }, { date: '2022-09-27', rate: 0.8950 },
@@ -303,12 +331,80 @@ const CIP_CLIENT = (() => {
         }
       }
     }
-    const c = { ...raw };
+    // Anchor to live/historical central bank benchmark fixing (NY Fed SOFR / ECB €STR) if cached
+    const liveOn = liveRatesCache.get(`${ccy}_${dateStr}`);
+    let shifted = { ...raw };
+    if (liveOn != null && raw && raw.ON != null) {
+      const shift = liveOn - raw.ON;
+      const weights = { ON: 1.0, '1M': 1.0, '3M': 1.0, '6M': 0.95, '1Y': 0.85, '2Y': 0.65, '3Y': 0.5, '5Y': 0.35 };
+      for (const k of ['ON', '1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y']) {
+        shifted[k] = raw[k] + shift * (weights[k] || 1.0);
+      }
+    }
+    const c = { ...shifted };
     c['1W'] = c.ON + 0.35 * (c['1M'] - c.ON);
     c['2W'] = c.ON + 0.65 * (c['1M'] - c.ON);
     c['2M'] = c['1M'] + 0.5 * (c['3M'] - c['1M']);
     c['9M'] = c['6M'] + 0.5 * (c['1Y'] - c['6M']);
     return c;
+  }
+
+  const liveRatesCache = new Map();
+
+  async function fetchLiveBenchmarkRates(dateStr) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isTodayOrRecent = (dateStr >= todayStr);
+
+    if (!liveRatesCache.has(`USD_${dateStr}`)) {
+      try {
+        let url;
+        if (isTodayOrRecent) {
+          url = 'https://markets.newyorkfed.org/api/rates/secured/sofr/last/1.json';
+        } else {
+          const d = new Date(dateStr);
+          const startD = new Date(d.getTime() - 7 * 86400000).toISOString().split('T')[0];
+          url = `https://markets.newyorkfed.org/api/rates/secured/sofr/search.json?startDate=${startD}&endDate=${dateStr}`;
+        }
+        const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          const json = await res.json();
+          const list = json.refRates;
+          if (list && list.length > 0 && list[0].percentRate != null) {
+            liveRatesCache.set(`USD_${dateStr}`, Number(list[0].percentRate));
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!liveRatesCache.has(`EUR_${dateStr}`)) {
+      try {
+        let url;
+        if (isTodayOrRecent) {
+          url = 'https://data-api.ecb.europa.eu/service/data/EST/B.EU000A2X2A25.WT?lastNObservations=1&format=jsondata';
+        } else {
+          const d = new Date(dateStr);
+          const startD = new Date(d.getTime() - 7 * 86400000).toISOString().split('T')[0];
+          url = `https://data-api.ecb.europa.eu/service/data/EST/B.EU000A2X2A25.WT?startPeriod=${startD}&endPeriod=${dateStr}&format=jsondata`;
+        }
+        const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          const json = await res.json();
+          const obs = json.dataSets?.[0]?.series?.['0:0:0']?.observations;
+          if (obs) {
+            const keys = Object.keys(obs).sort((a, b) => Number(a) - Number(b));
+            const latestVal = obs[keys[keys.length - 1]]?.[0];
+            if (latestVal != null) {
+              liveRatesCache.set(`EUR_${dateStr}`, Number(latestVal));
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    return {
+      USD: liveRatesCache.get(`USD_${dateStr}`) ?? null,
+      EUR: liveRatesCache.get(`EUR_${dateStr}`) ?? null
+    };
   }
 
   function getBasisBps(pairKey, dateStr, tenor) {
@@ -394,6 +490,61 @@ const CIP_CLIENT = (() => {
 
   function getSpotDate(tradeD, lag) {
     return addBdays(new Date(tradeD), lag || 2);
+  }
+
+  function toUtcDateFromZoned(dateStr, timeStr = '14:15', timeZone = 'Europe/Paris') {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const [hh, mm] = (timeStr || '14:15').split(':').map(n => parseInt(n, 10) || 0);
+    const utcGuess = Date.UTC(y, m - 1, d, hh, mm, 0);
+    if (!timeZone || timeZone === 'UTC') return new Date(utcGuess);
+    try {
+      const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone,
+        hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+      const parts = Object.fromEntries(fmt.formatToParts(new Date(utcGuess)).map(p => [p.type, p.value]));
+      const asZonedUtc = Date.UTC(
+        Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+        Number(parts.hour === '24' ? 0 : parts.hour), Number(parts.minute), Number(parts.second)
+      );
+      const offsetMs = asZonedUtc - utcGuess;
+      return new Date(utcGuess - offsetMs);
+    } catch (e) {
+      return new Date(utcGuess);
+    }
+  }
+
+  function getEffectiveTradeDateInfo(dateStr, timeStr = null, timeZone = 'Europe/Paris') {
+    if (!timeStr) {
+      return { effectiveDateStr: dateStr, rolledAfterNyCut: false, utcTimestamp: null, nyTimeStr: null };
+    }
+    const utcDate = toUtcDateFromZoned(dateStr, timeStr, timeZone);
+    const fmtNy = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit'
+    });
+    const p = Object.fromEntries(fmtNy.formatToParts(utcDate).map(x => [x.type, x.value]));
+    const nyHour = parseInt(p.hour === '24' ? '0' : p.hour, 10);
+    const nyDateStr = `${p.year}-${p.month}-${p.day}`;
+    const nyTimeStr = `${String(nyHour).padStart(2, '0')}:${p.minute} NY`;
+    const rolledAfterNyCut = nyHour >= 17;
+
+    let effectiveDateStr = nyDateStr;
+    if (rolledAfterNyCut) {
+      const nextD = new Date(`${nyDateStr}T00:00:00Z`);
+      nextD.setUTCDate(nextD.getUTCDate() + 1);
+      effectiveDateStr = nextD.toISOString().split('T')[0];
+    }
+    return {
+      effectiveDateStr,
+      rolledAfterNyCut,
+      utcTimestamp: Math.floor(utcDate.getTime() / 1000),
+      nyTimeStr
+    };
   }
 
   function getMaturityDate(spotD, tenor) {
@@ -511,8 +662,9 @@ const CIP_CLIENT = (() => {
 
   function brokenDate(pairKey, asOf, settle, applyXccy = true, customSpot = null, options = {}) {
     const pair = PAIRS[pairKey] || PAIRS.EURUSD;
+    const tradeInfo = getEffectiveTradeDateInfo(asOf, options && options.tradeTime, options && options.timeZone);
     const spot = getSpotRate(pairKey, asOf, customSpot);
-    const spotDate = getSpotDate(asOf, pair.spotLag);
+    const spotDate = getSpotDate(tradeInfo.effectiveDateStr, pair.spotLag);
     const mat = new Date(settle);
     const days = Math.max(1, Math.round((mat.getTime() - spotDate.getTime()) / 86400000));
 
@@ -553,6 +705,9 @@ const CIP_CLIENT = (() => {
       lhs: pair.lhs,
       rhs: pair.rhs,
       tradeDate: asOf,
+      effectiveTradeDate: tradeInfo.effectiveDateStr,
+      rolledAfterNyCut: tradeInfo.rolledAfterNyCut,
+      nyTimeStr: tradeInfo.nyTimeStr,
       spotDate: spotDate.toISOString().split('T')[0],
       maturityDate: settle,
       days,
@@ -671,7 +826,15 @@ const CIP_CLIENT = (() => {
       lhs: pair.base,
       rhs: pair.quote,
       tradeDate: asOf,
+      effectiveTradeDate: startFwd.effectiveTradeDate,
+      rolledAfterNyCut: startFwd.rolledAfterNyCut,
+      nyTimeStr: startFwd.nyTimeStr,
       spotDate: startFwd.spotDate,
+      baseRate: startFwd.baseRate,
+      quoteRate: startFwd.quoteRate,
+      xccyBps: endFwd.xccyBps,
+      baseCcy: { benchmark: CURRENCIES[pair.base].benchmarkRate },
+      quoteCcy: { benchmark: CURRENCIES[pair.quote].benchmarkRate },
       spot: startFwd.spot,
       spotBid: startFwd.spotBid,
       spotAsk: startFwd.spotAsk,
@@ -750,14 +913,19 @@ const CIP_CLIENT = (() => {
 
   const clientSpotCache = new Map();
 
-  async function fetchLiveSpot(pairKey, dateStr, customSpot = null, forceRefresh = false) {
+  async function fetchLiveSpot(pairKey, dateStr, customSpot = null, forceRefresh = false, options = {}) {
     if (customSpot != null && !isNaN(parseFloat(customSpot)) && parseFloat(customSpot) > 0) {
       return getSpotBidAsk(pairKey, dateStr, customSpot);
     }
     const pair = PAIRS[pairKey] || PAIRS.EURUSD;
-    const cacheKey = `${pairKey}_${dateStr}`;
+    const tradeTime = options && options.tradeTime ? options.tradeTime : null;
+    const timeZone = options && options.timeZone ? options.timeZone : 'Europe/Paris';
+    const tradeInfo = getEffectiveTradeDateInfo(dateStr, tradeTime, timeZone);
+    const cacheKey = tradeTime ? `${pairKey}_${dateStr}_${tradeTime}_${timeZone}` : `${pairKey}_${dateStr}`;
     const todayStr = new Date().toISOString().split('T')[0];
-    const isToday = (dateStr >= todayStr);
+    const nowSec = Math.floor(Date.now() / 1000);
+    const isHistoricalTimestamp = tradeInfo.utcTimestamp != null && (nowSec - tradeInfo.utcTimestamp > 900);
+    const isToday = (dateStr >= todayStr) && !isHistoricalTimestamp;
 
     if (!forceRefresh && clientSpotCache.has(cacheKey)) {
       const cached = clientSpotCache.get(cacheKey);
@@ -845,7 +1013,22 @@ const CIP_CLIENT = (() => {
         } catch (e) {}
       }
     } else {
-      // Historical ECB fixing
+      // Historical / Intraday: try local server intraday Yahoo feed if available
+      if (tradeTime) {
+        try {
+          const res = await fetch(`/api/spot?pair=${pairKey}&date=${dateStr}&time=${encodeURIComponent(tradeTime)}&tz=${encodeURIComponent(timeZone)}${forceRefresh ? '&refresh=true' : ''}`, {
+            signal: AbortSignal.timeout(2500)
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.mid > 0) {
+              clientSpotCache.set(cacheKey, { ...data, timestamp: Date.now() });
+              return data;
+            }
+          }
+        } catch (e) {}
+      }
+      // Historical ECB fixing (Frankfurter)
       try {
         const res = await fetch(`https://api.frankfurter.dev/v1/${dateStr}?base=${pair.base}`, {
           signal: AbortSignal.timeout(3500)
@@ -908,6 +1091,8 @@ const CIP_CLIENT = (() => {
     getSpotRate,
     getSpotBidAsk,
     fetchLiveSpot,
+    fetchLiveBenchmarkRates,
+    getEffectiveTradeDateInfo,
     getYieldCurve,
     computeLadder,
     compareCurves,
