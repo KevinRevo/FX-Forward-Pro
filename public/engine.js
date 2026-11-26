@@ -1013,7 +1013,8 @@ const CIP_CLIENT = (() => {
         } catch (e) {}
       }
     } else {
-      // Historical / Intraday: try local server intraday Yahoo feed if available
+      // Historical / Intraday:
+      // A. Try local server intraday Yahoo feed if available
       if (tradeTime) {
         try {
           const res = await fetch(`/api/spot?pair=${pairKey}&date=${dateStr}&time=${encodeURIComponent(tradeTime)}&tz=${encodeURIComponent(timeZone)}${forceRefresh ? '&refresh=true' : ''}`, {
@@ -1027,21 +1028,64 @@ const CIP_CLIENT = (() => {
             }
           }
         } catch (e) {}
-      }
-      // Historical ECB fixing (Frankfurter)
-      try {
-        const res = await fetch(`https://api.frankfurter.dev/v1/${dateStr}?base=${pair.base}`, {
-          signal: AbortSignal.timeout(3500)
-        });
-        if (res.ok) {
-          const d = await res.json();
-          if (d.rates && d.rates[pair.quote]) {
-            fetchedRate = parseFloat(d.rates[pair.quote].toFixed(pair.quoteDecimals));
-            source = 'ECB_HISTORICAL_FIXING';
-            isLive = false;
-          }
+
+        // B. Direct browser CORS intraday OHLC via Kraken (works on GitHub Pages!)
+        if (tradeInfo.utcTimestamp) {
+          try {
+            const targetTs = tradeInfo.utcTimestamp;
+            const ageDays = (nowSec - targetTs) / 86400;
+            const krakenPair = pair.underlyingPair || pairKey;
+            if (ageDays >= 0 && ageDays < 30 && ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'USDCAD', 'AUDUSD', 'EURGBP', 'EURJPY'].includes(krakenPair)) {
+              const interval = ageDays < 2.2 ? 5 : (ageDays < 7.0 ? 15 : 60);
+              const since = targetTs - (interval * 60 * 12);
+              const kRes = await fetch(`https://api.kraken.com/0/public/OHLC?pair=${krakenPair}&interval=${interval}&since=${since}`, {
+                signal: AbortSignal.timeout(3500)
+              });
+              if (kRes.ok) {
+                const kJson = await kRes.json();
+                const resKey = kJson.result && Object.keys(kJson.result).find(k => k !== 'last');
+                const bars = resKey ? kJson.result[resKey] : null;
+                if (bars && bars.length > 0) {
+                  let bestBar = null;
+                  let bestDiff = Infinity;
+                  for (const b of bars) {
+                    const diff = Math.abs(b[0] - targetTs);
+                    if (diff < bestDiff) {
+                      bestDiff = diff;
+                      bestBar = b;
+                    }
+                  }
+                  if (bestBar && bestDiff <= 7200) {
+                    const rawClose = parseFloat(bestBar[4]);
+                    if (rawClose > 0) {
+                      const finalVal = pair.isInverted ? (1 / rawClose) : rawClose;
+                      fetchedRate = parseFloat(finalVal.toFixed(pair.quoteDecimals));
+                      source = `KRAKEN_INTRADAY_${interval}M`;
+                      isLive = false;
+                    }
+                  }
+                }
+              }
+            }
+          } catch (e) {}
         }
-      } catch (e) {}
+      }
+      // C. Historical ECB fixing (Frankfurter)
+      if (!fetchedRate) {
+        try {
+          const res = await fetch(`https://api.frankfurter.dev/v1/${dateStr}?base=${pair.base}`, {
+            signal: AbortSignal.timeout(3500)
+          });
+          if (res.ok) {
+            const d = await res.json();
+            if (d.rates && d.rates[pair.quote]) {
+              fetchedRate = parseFloat(d.rates[pair.quote].toFixed(pair.quoteDecimals));
+              source = 'ECB_HISTORICAL_FIXING';
+              isLive = false;
+            }
+          }
+        } catch (e) {}
+      }
     }
 
     if (!fetchedRate) {
