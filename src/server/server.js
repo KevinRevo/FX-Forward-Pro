@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { PAIRS, STANDARD_TENORS, CURRENCIES, getInvertedPairKey } = require('../fx-engine/conventions');
+const { getEffectiveTradeDateInfo } = require('../fx-engine/calendar');
 const {
   getForwardLadder,
   calculateBrokenDateForward,
@@ -91,16 +92,26 @@ const HISTORICAL_PRESETS = [
   }
 ];
 
-// 0. Spot Details (Live & Historical)
+// 0. Spot Details (Live & Historical + Intraday Trade Time)
 app.get('/api/spot', async (req, res) => {
   try {
     const pair = req.query.pair || 'EURUSD';
     const date = req.query.date || new Date().toISOString().split('T')[0];
+    const time = req.query.time || null;
+    const tz = req.query.tz || 'Europe/Paris';
     const forceRefresh = req.query.refresh === 'true' || req.query.force === 'true';
     const customSpot = req.query.spot ? parseFloat(req.query.spot.toString().replace(',', '.')) : null;
 
-    const details = await getSpotDetails(pair, date, customSpot, forceRefresh);
-    res.json(details);
+    const tradeInfo = getEffectiveTradeDateInfo(date, time, tz);
+    const details = await getSpotDetails(pair, date, customSpot, forceRefresh, {
+      utcTimestamp: tradeInfo.utcTimestamp
+    });
+    res.json({
+      ...details,
+      effectiveTradeDate: tradeInfo.effectiveDateStr,
+      rolledAfterNyCut: tradeInfo.rolledAfterNyCut,
+      nyTimeStr: tradeInfo.nyTimeStr
+    });
   } catch (error) {
     console.error('Error in /api/spot:', error);
     res.status(500).json({ error: error.message });
@@ -172,6 +183,8 @@ app.get('/api/broken-date', async (req, res) => {
   try {
     const pair = req.query.pair || 'EURUSD';
     const asOf = req.query.asOf || new Date().toISOString().split('T')[0];
+    const tradeTime = req.query.time || null;
+    const timeZone = req.query.tz || 'Europe/Paris';
     const settlement = req.query.settlement;
     const spot = req.query.spot ? parseFloat(req.query.spot.toString().replace(',', '.')) : null;
     const baseRate = req.query.baseRate ? parseFloat(req.query.baseRate.toString().replace(',', '.')) : null;
@@ -182,7 +195,7 @@ app.get('/api/broken-date', async (req, res) => {
       return res.status(400).json({ error: 'Missing settlement query parameter (YYYY-MM-DD)' });
     }
 
-    const result = await calculateBrokenDateForward(pair, asOf, settlement, { applyXccy, spot, baseRate, quoteRate });
+    const result = await calculateBrokenDateForward(pair, asOf, settlement, { applyXccy, spot, baseRate, quoteRate, tradeTime, timeZone });
     res.json(result);
   } catch (error) {
     console.error('Error in /api/broken-date:', error);
@@ -195,6 +208,8 @@ app.get('/api/window-forward', async (req, res) => {
   try {
     const pair = req.query.pair || 'EURUSD';
     const asOf = req.query.asOf || new Date().toISOString().split('T')[0];
+    const tradeTime = req.query.time || null;
+    const timeZone = req.query.tz || 'Europe/Paris';
     const windowStart = req.query.windowStart;
     const windowEnd = req.query.windowEnd;
     const direction = req.query.direction || 'BUY_LHS';
@@ -213,7 +228,9 @@ app.get('/api/window-forward', async (req, res) => {
       notional,
       spot,
       baseRate,
-      quoteRate
+      quoteRate,
+      tradeTime,
+      timeZone
     });
     res.json(result);
   } catch (error) {
