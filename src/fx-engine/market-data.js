@@ -32,7 +32,8 @@ if (!fs.existsSync(CACHE_DIR)) {
 // In-memory cache for fast repeated queries
 const memoryCache = {
   spots: new Map(),       // key: symbol_date -> { rate, bid, ask, mid, source, timestamp, isLive }
-  curves: new Map()
+  curves: new Map(),
+  rates: new Map()
 };
 
 // Built-in historical benchmark rate regimes (Annualized %)
@@ -141,6 +142,32 @@ const HISTORICAL_REGIMES = [
       AUD: { ON: 3.85, '1M': 3.85, '3M': 3.80, '6M': 3.80, '1Y': 3.80, '2Y': 3.85, '3Y': 3.95, '5Y': 4.10 }
     },
     basisBps: { EURUSD: -15, GBPUSD: -8, USDJPY: -35, USDCHF: -10, USDCAD: -4, AUDUSD: -5, EURGBP: 0 }
+  },
+  {
+    date: '2026-11-19', // Real NY Fed SOFR 3.91% & ECB ESTR 2.441%
+    rates: {
+      USD: { ON: 3.91, '1M': 3.91, '3M': 3.92, '6M': 3.93, '1Y': 3.94, '2Y': 3.88, '3Y': 3.85, '5Y': 3.90 },
+      EUR: { ON: 2.441, '1M': 2.44, '3M': 2.44, '6M': 2.43, '1Y': 2.43, '2Y': 2.45, '3Y': 2.50, '5Y': 2.62 },
+      GBP: { ON: 4.25, '1M': 4.20, '3M': 4.15, '6M': 4.05, '1Y': 3.95, '2Y': 4.00, '3Y': 4.05, '5Y': 4.15 },
+      JPY: { ON: 0.50, '1M': 0.52, '3M': 0.55, '6M': 0.65, '1Y': 0.78, '2Y': 0.95, '3Y': 1.10, '5Y': 1.30 },
+      CHF: { ON: 0.75, '1M': 0.75, '3M': 0.75, '6M': 0.75, '1Y': 0.80, '2Y': 0.85, '3Y': 0.90, '5Y': 1.05 },
+      CAD: { ON: 3.10, '1M': 3.10, '3M': 3.05, '6M': 3.00, '1Y': 3.00, '2Y': 3.10, '3Y': 3.20, '5Y': 3.35 },
+      AUD: { ON: 3.85, '1M': 3.85, '3M': 3.80, '6M': 3.80, '1Y': 3.80, '2Y': 3.85, '3Y': 3.95, '5Y': 4.10 }
+    },
+    basisBps: { EURUSD: -15, GBPUSD: -8, USDJPY: -35, USDCHF: -10, USDCAD: -4, AUDUSD: -5, EURGBP: 0 }
+  },
+  {
+    date: '2026-11-26', // Active Live Market Benchmark (NY Fed SOFR 3.94%, ECB ESTR 2.444%)
+    rates: {
+      USD: { ON: 3.94, '1M': 3.94, '3M': 3.94, '6M': 3.94, '1Y': 3.94, '2Y': 3.90, '3Y': 3.88, '5Y': 3.92 },
+      EUR: { ON: 2.444, '1M': 2.444, '3M': 2.442, '6M': 2.44, '1Y': 2.44, '2Y': 2.46, '3Y': 2.52, '5Y': 2.65 },
+      GBP: { ON: 4.25, '1M': 4.20, '3M': 4.15, '6M': 4.05, '1Y': 3.95, '2Y': 4.00, '3Y': 4.05, '5Y': 4.15 },
+      JPY: { ON: 0.50, '1M': 0.52, '3M': 0.55, '6M': 0.65, '1Y': 0.78, '2Y': 0.95, '3Y': 1.10, '5Y': 1.30 },
+      CHF: { ON: 0.75, '1M': 0.75, '3M': 0.75, '6M': 0.75, '1Y': 0.80, '2Y': 0.85, '3Y': 0.90, '5Y': 1.05 },
+      CAD: { ON: 3.10, '1M': 3.10, '3M': 3.05, '6M': 3.00, '1Y': 3.00, '2Y': 3.10, '3Y': 3.20, '5Y': 3.35 },
+      AUD: { ON: 3.85, '1M': 3.85, '3M': 3.80, '6M': 3.80, '1Y': 3.80, '2Y': 3.85, '3Y': 3.95, '5Y': 4.10 }
+    },
+    basisBps: { EURUSD: -15, GBPUSD: -8, USDJPY: -35, USDCHF: -10, USDCAD: -4, AUDUSD: -5, EURGBP: 0 }
   }
 ];
 
@@ -160,7 +187,9 @@ const BASELINE_SPOTS = {
     { date: '2025-01-15', rate: 1.0420 },
     { date: '2026-01-15', rate: 1.0650 },
     { date: '2026-08-25', rate: 1.1662 },
-    { date: '2026-10-28', rate: 1.1119 }
+    { date: '2026-10-28', rate: 1.1119 },
+    { date: '2026-11-19', rate: 1.0978 },
+    { date: '2026-11-26', rate: 1.0980 }
   ],
   USDEUR: [
     { date: '2019-10-15', rate: 0.9066 },
@@ -170,7 +199,9 @@ const BASELINE_SPOTS = {
     { date: '2023-10-15', rate: 0.9504 },
     { date: '2024-09-15', rate: 0.9018 },
     { date: '2026-08-25', rate: 0.8566 },
-    { date: '2026-10-28', rate: 0.8986 }
+    { date: '2026-10-28', rate: 0.8986 },
+    { date: '2026-11-19', rate: 0.9109 },
+    { date: '2026-11-26', rate: 0.9107 }
   ],
   EURGBP: [
     { date: '2019-10-15', rate: 0.8650 },
@@ -242,7 +273,7 @@ const BASELINE_SPOTS = {
  * Fetch detailed spot information including source and live status.
  * Checks multi-source: Yahoo Finance, OpenER, Frankfurter ECB, disk cache, and fallback.
  */
-async function getSpotDetails(pairKey, dateStr, customSpot = null, forceRefresh = false) {
+async function getSpotDetails(pairKey, dateStr, customSpot = null, forceRefresh = false, options = {}) {
   const pair = PAIRS[pairKey] || PAIRS.EURUSD;
   const decimals = pair.quoteDecimals || 5;
   const spreadPips = (pair.typicalSpreadPips && pair.typicalSpreadPips['1M']) || 0.4;
@@ -266,8 +297,11 @@ async function getSpotDetails(pairKey, dateStr, customSpot = null, forceRefresh 
 
   const standardKey = pair.symbol;
   const todayStr = new Date().toISOString().split('T')[0];
-  const isTodayOrFuture = (dateStr >= todayStr);
-  const cacheKey = `${standardKey}_${dateStr}`;
+  const utcTimestamp = (options && options.utcTimestamp) ? Number(options.utcTimestamp) : null;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const isHistoricalTimestamp = utcTimestamp != null && (nowSec - utcTimestamp > 900);
+  const isTodayOrFuture = (dateStr >= todayStr) && !isHistoricalTimestamp;
+  const cacheKey = utcTimestamp ? `${standardKey}_${dateStr}_${utcTimestamp}` : `${standardKey}_${dateStr}`;
 
   // 1. Check in-memory cache (with 30s TTL for live today quotes)
   if (!forceRefresh && memoryCache.spots.has(cacheKey)) {
@@ -381,22 +415,66 @@ async function getSpotDetails(pairKey, dateStr, customSpot = null, forceRefresh 
       } catch (e) {}
     }
   } else {
-    // Historical Date: Official ECB historical fixing
-    try {
-      const url = `https://api.frankfurter.dev/v1/${dateStr}?base=${pair.base}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
-      if (res.ok) {
-        const json = await res.json();
-        const r = json.rates?.[pair.quote];
-        if (r != null && r > 0) {
-          spotMid = parseFloat(r.toFixed(decimals));
-          source = 'ECB_HISTORICAL_FIXING';
-          isLive = false;
+    // 1. If a precise trade time (utcTimestamp) is provided, fetch intraday bar (5m if < 55d, 1h if < 720d)
+    if (utcTimestamp && pair.yahooTicker) {
+      try {
+        const ageDays = (nowSec - utcTimestamp) / 86400;
+        if (ageDays >= 0 && ageDays < 720) {
+          const interval = ageDays < 55 ? '5m' : '1h';
+          const startPeriod = utcTimestamp - 86400;
+          const endPeriod = utcTimestamp + 86400;
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${pair.yahooTicker}?period1=${startPeriod}&period2=${endPeriod}&interval=${interval}`;
+          const res = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+            signal: AbortSignal.timeout(3500)
+          });
+          if (res.ok) {
+            const json = await res.json();
+            const timestamps = json.chart?.result?.[0]?.timestamp;
+            const closes = json.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+            if (timestamps && closes) {
+              let bestIdx = -1;
+              let bestDiff = Infinity;
+              for (let i = 0; i < timestamps.length; i++) {
+                if (closes[i] != null && closes[i] > 0) {
+                  const diff = Math.abs(timestamps[i] - utcTimestamp);
+                  if (diff < bestDiff) {
+                    bestDiff = diff;
+                    bestIdx = i;
+                  }
+                }
+              }
+              if (bestIdx >= 0 && bestDiff <= 14400) {
+                const rawPrice = closes[bestIdx];
+                const finalPrice = pair.isInverted ? (1 / rawPrice) : rawPrice;
+                spotMid = parseFloat(finalPrice.toFixed(decimals));
+                source = `YAHOO_INTRADAY_${interval.toUpperCase()}`;
+                isLive = false;
+              }
+            }
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
 
-    // Fallback: Yahoo Finance historical bar
+    // 2. Historical Date Fallback: Official ECB historical fixing
+    if (!spotMid) {
+      try {
+        const url = `https://api.frankfurter.dev/v1/${dateStr}?base=${pair.base}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          const json = await res.json();
+          const r = json.rates?.[pair.quote];
+          if (r != null && r > 0) {
+            spotMid = parseFloat(r.toFixed(decimals));
+            source = 'ECB_HISTORICAL_FIXING';
+            isLive = false;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 3. Fallback: Yahoo Finance daily historical bar
     if (!spotMid) {
       try {
         const targetDate = new Date(dateStr);
@@ -415,7 +493,9 @@ async function getSpotDetails(pairKey, dateStr, customSpot = null, forceRefresh 
             for (let i = timestamps.length - 1; i >= 0; i--) {
               const tDate = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
               if (tDate <= dateStr && closes[i] != null) {
-                spotMid = parseFloat(closes[i].toFixed(decimals));
+                const rawPrice = closes[i];
+                const finalPrice = pair.isInverted ? (1 / rawPrice) : rawPrice;
+                spotMid = parseFloat(finalPrice.toFixed(decimals));
                 source = 'YAHOO_HISTORICAL_CLOSE';
                 break;
               }
@@ -534,8 +614,82 @@ function getYieldCurve(currency, dateStr) {
     }
   }
 
+  // Anchor to live/historical central bank benchmark fixing (NY Fed SOFR / ECB €STR) if cached
+  const liveOn = memoryCache.rates.get(`${ccy}_${dateStr}`);
+  if (liveOn != null && curvePoints && curvePoints.ON != null) {
+    const shift = liveOn - curvePoints.ON;
+    const shifted = {};
+    const weights = { ON: 1.0, '1M': 1.0, '3M': 1.0, '6M': 0.95, '1Y': 0.85, '2Y': 0.65, '3Y': 0.5, '5Y': 0.35 };
+    for (const k of ['ON', '1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y']) {
+      shifted[k] = curvePoints[k] + shift * (weights[k] || 1.0);
+    }
+    curvePoints = shifted;
+  }
+
   // Derive intermediate points (1W, 2W, 2M, 9M)
   return enrichCurve(curvePoints);
+}
+
+/**
+ * Fetch real-time or historical official NY Fed SOFR and ECB €STR rates
+ * and cache them for curve anchoring.
+ */
+async function fetchLiveBenchmarkRates(dateStr) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isTodayOrRecent = (dateStr >= todayStr);
+
+  // 1. NY Fed SOFR
+  if (!memoryCache.rates.has(`USD_${dateStr}`)) {
+    try {
+      let url;
+      if (isTodayOrRecent) {
+        url = 'https://markets.newyorkfed.org/api/rates/secured/sofr/last/1.json';
+      } else {
+        const d = new Date(dateStr);
+        const startD = new Date(d.getTime() - 7 * 86400000).toISOString().split('T')[0];
+        url = `https://markets.newyorkfed.org/api/rates/secured/sofr/search.json?startDate=${startD}&endDate=${dateStr}`;
+      }
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        const json = await res.json();
+        const list = json.refRates;
+        if (list && list.length > 0 && list[0].percentRate != null) {
+          memoryCache.rates.set(`USD_${dateStr}`, Number(list[0].percentRate));
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 2. ECB €STR
+  if (!memoryCache.rates.has(`EUR_${dateStr}`)) {
+    try {
+      let url;
+      if (isTodayOrRecent) {
+        url = 'https://data-api.ecb.europa.eu/service/data/EST/B.EU000A2X2A25.WT?lastNObservations=1&format=jsondata';
+      } else {
+        const d = new Date(dateStr);
+        const startD = new Date(d.getTime() - 7 * 86400000).toISOString().split('T')[0];
+        url = `https://data-api.ecb.europa.eu/service/data/EST/B.EU000A2X2A25.WT?startPeriod=${startD}&endPeriod=${dateStr}&format=jsondata`;
+      }
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        const json = await res.json();
+        const obs = json.dataSets?.[0]?.series?.['0:0:0']?.observations;
+        if (obs) {
+          const keys = Object.keys(obs).sort((a, b) => Number(a) - Number(b));
+          const latestVal = obs[keys[keys.length - 1]]?.[0];
+          if (latestVal != null) {
+            memoryCache.rates.set(`EUR_${dateStr}`, Number(latestVal));
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  return {
+    USD: memoryCache.rates.get(`USD_${dateStr}`) ?? null,
+    EUR: memoryCache.rates.get(`EUR_${dateStr}`) ?? null
+  };
 }
 
 function enrichCurve(raw) {
@@ -626,6 +780,7 @@ module.exports = {
   getSpotRate,
   getSpotDetails,
   getYieldCurve,
+  fetchLiveBenchmarkRates,
   getCrossCurrencyBasisBps,
   interpolateRateForDays,
   HISTORICAL_REGIMES,
