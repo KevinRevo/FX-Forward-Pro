@@ -101,10 +101,11 @@
             <div class="form-row-dual">
               <div class="form-row">
                 <label for="fxfa-asof-date">Trade Date &amp; Time (As-Of):</label>
-                <div class="datetime-wrap" style="display:flex; gap:6px; align-items:center;">
+                <div class="datetime-wrap" style="display:flex; gap:5px; align-items:center;">
                   <input type="date" id="fxfa-asof-date" class="bbg-input" style="flex:1.2;" autocomplete="off">
-                  <input type="time" id="fxfa-asof-time" class="bbg-input" style="flex:0.8; min-width:86px;" title="Exact Trade Execution Time (affects intraday spot &amp; 17:00 NY value-date rollover)" autocomplete="off">
-                  <select id="fxfa-timezone" class="bbg-select" style="flex:0.9; min-width:92px;" title="Timezone for Trade Time">
+                  <input type="time" id="fxfa-asof-time" class="bbg-input" style="flex:0.8; min-width:82px;" title="Heure précise du trade (laisser vide si inconnue → fixing journalier)" autocomplete="off">
+                  <button type="button" id="fxfa-clear-time-btn" class="bbg-action-btn-mini" title="Ne pas spécifier d'heure (utiliser le fixing journalier)" style="padding:4px 7px; flex-shrink:0;">✕</button>
+                  <select id="fxfa-timezone" class="bbg-select" style="flex:0.9; min-width:90px;" title="Timezone for Trade Time">
                     <option value="Europe/Paris">Paris (CET)</option>
                     <option value="UTC">UTC</option>
                     <option value="America/New_York">NY (EST)</option>
@@ -627,7 +628,7 @@
     </footer>
   </div>
 
-  <script src="engine.js?v=20261126_2"></script>
-  <script src="app.js?v=20261126_2"></script>
+  <script src="engine.js?v=20261126_4"></script>
+  <script src="app.js?v=20261126_4"></script>
 </body>
 </html>
